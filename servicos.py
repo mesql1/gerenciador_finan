@@ -39,15 +39,8 @@ class GerenciadorFin:
 
         total_gasto = sum(
 
-            #TODO: Confirmar se funciona e apagar essa sessão
-
-            # t.valor for t in self.desp_mes(mes, ano)
-            # if t.categoria.id == categoria_id
-            t.valor for t in self.transacoes
+            t.valor for t in self.desp_mes(mes, ano)
             if t.categoria.id == categoria_id
-            and t.categoria.tipo == TipoTransacao.DESPESA
-            and t.data.month == mes
-            and t.data.year == ano
         )
 
         perc = (total_gasto / orcamento.limite_mensal) * 100
