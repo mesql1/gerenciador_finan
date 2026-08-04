@@ -52,8 +52,6 @@ class GerenciadorFin:
 
         return f"DENTRO DO LIMITE ({perc:.1f}% usado)"
 
-    #TODO: Finalizar essa função
-
     def buscar_por_descricao(self, termo: str) -> List[Transacao]:
         termo = termo.strip().lower()
         return [
