@@ -55,7 +55,18 @@ class GerenciadorFin:
     #TODO: Finalizar essa função
 
     def buscar_por_descricao(self, termo: str) -> List[Transacao]:
-        pass
+        termo = termo.strip().lower()
+        return [
+            t for t in self.transacoes
+            if termo in t.descricao.lower()
+        ]
+
+    def del_id(self, transacao_id: int) -> bool:
+        for i, t in enumerate(self.transacoes):
+            if t.id == transacao_id:
+                del self.transacoes[i]
+                return True
+            return False
 
     def export_csv(transacoes: list[Transacao], caminho_saida="extrato.csv"):
         if not transacoes:
