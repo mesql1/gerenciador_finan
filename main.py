@@ -150,6 +150,48 @@ class AppCLI:
                 f"{sinal} R${t.valor:<8.2f}"
                 )
 
+        opc_del = input("Deseja deletar alguma transação? (Y/N): ").upper()
+
+        match opc_del:
+            case "Y":
+                termo = input("Informe a descrição para buscar: ").strip()
+
+                if not termo:
+                    print("Busca cancelada. Nenhum termo informado.")
+
+                encontradas = self.gerenciador.buscar_por_descricao(termo)
+
+                if not encontradas:
+                    print(f"Nenhuma transação com o termo '{termo}' foi encontrada.")
+                    return
+
+                print(f"\nResultados encontrados para '{termo}'")
+                print(f"\n{'ID':<4} | {'Data':<10} | {'Tipo':<8} | {'Categoria':<15} | {'Descrição':<20} | {'Valor (R$)':<10}")
+                print("-" * 75)
+                for t in encontradas:
+                    print(f"{t.id:<4} | {t.data.strftime('%d/%m/%Y'):<10} | {t.descricao:<20} | R${t.valor:<8.2f}")
+
+                id_del = ler_int("\nInforme o ID da transação que deseja deletar (Digite 0 para cancelar): ")
+                if id_del == 0:
+                    print("Operação cancelada.")
+                    return
+
+                #   Garante que o ID digitado pertence ao resultados filtrados
+                if not any(t.id == id_del for t in encontradas):
+                    print("O ID informado não pertence à lista exibida.")
+                    return
+
+                if self.gerenciador.del_id(id_del):
+                    print(f"Transação ID {id_del} removida com sucesso.")
+
+                    self.repositorio.salvar(self.gerenciador.transacoes)
+                else:
+                    print("Não foi possível remover a transação.")
+            case "N":
+                print("\nVoltando para o menu principal...\n")
+            case _:
+                print("\nOpção inválida")
+                
     def menu_definir_orc(self):
         print("\n--- Definir Teto de Orçamento ---")
         despesas_cat = [c for c in self.categorias if c.tipo == TipoTransacao.DESPESA]
