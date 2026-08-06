@@ -65,7 +65,7 @@ python main.py
 
 Este projeto está sob desenvolvimento contínuo. As próximas etapas incluem:
 
-[ ] Migração para SQLite: Substituição do arquivo JSON por banco de dados relacional via sqlite3 nativo.
+[X] Migração para SQLite: Substituição do arquivo JSON por banco de dados relacional via sqlite3 nativo.
 
 [ ] Testes Automatizados: Implementação de cobertura de testes unitários com pytest para a camada de serviços e cálculos.
 
