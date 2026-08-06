@@ -14,8 +14,17 @@ class GerenciadorFin:
         self.transacoes.append(transacao)
 
     def calc_saldo_total(self) -> float:
-        receitas = sum(t.valor for t in self.transacoes if t.categoria.tipo == TipoTransacao.RECEITA)
-        despesas = sum(t.valor for t in self.transacoes if t.categoria.tipo == TipoTransacao.DESPESA)
+        receitas = 0.0
+        despesas = 0.0
+
+        for t in self.transacoes:
+            valor_real = t.valor[0] if isinstance(t.valor, list) else t.valor
+
+            if t.categoria.tipo == TipoTransacao.RECEITA:
+                receitas += valor_real
+            elif t.categoria.tipo == TipoTransacao.DESPESA:
+                despesas += valor_real
+
         return receitas - despesas
 
     def desp_mes(self, mes: int, ano: int) -> List[Transacao]:

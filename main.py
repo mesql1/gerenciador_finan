@@ -2,7 +2,7 @@ import sys
 from datetime import datetime
 from modelos import Categoria, Transacao, TipoTransacao, Orcamento
 from servicos import GerenciadorFin
-from repositorio import RepoJSON
+from repositorio import RepoSQLite
 
 def ler_float(mensagem: str) -> float:
     #   Lê valor decimal vindo do terminal garantindo validação de tipo e de valor positivo 
@@ -38,20 +38,14 @@ def ler_data(mensagem: str) -> datetime:
 
 class AppCLI:
     def __init__(self):
-        self.repositorio = RepoJSON("dados_financas.json")
+        self.repositorio = RepoSQLite("financas.db")
         self.gerenciador = GerenciadorFin()
 
         #   Carrega os dados persistidos ao iniciar
-        self.gerenciador.transacoes = self.repositorio.carregar()
 
-        self.categorias = [
-            Categoria(id=1, nome="Alimentação", tipo=TipoTransacao.DESPESA),
-            Categoria(id=2, nome="Transporte", tipo=TipoTransacao.DESPESA),
-            Categoria(id=3, nome="Moradia", tipo=TipoTransacao.DESPESA),
-            Categoria(id=4, nome="Lazer", tipo=TipoTransacao.DESPESA),
-            Categoria(id=5, nome="Salário", tipo=TipoTransacao.RECEITA),
-            Categoria(id=6, nome="Investimentos/Extras", tipo=TipoTransacao.RECEITA)
-        ]
+        self.categorias = self.repositorio.listar_categorias()
+        self.gerenciador.transacoes = self.repositorio.carregar_transacoes()
+        self.gerenciador.orcamentos = self.repositorio.carregar_orcamentos()
 
     def exibir_menu(self):
         print("\n" + "-" * 30)
@@ -92,11 +86,8 @@ class AppCLI:
 
         data_transacao = ler_data("Data (DD/MM/AAAA ou deixar em branco para hoje): ")
 
-        #   ID sequencial baseado nas transações existentes
-        novo_id = len(self.gerenciador.transacoes) + 1
-
         nova_transacao = Transacao(
-            id=novo_id,
+            id=0,
             descricao=descricao,
             valor=valor,
             categoria=cat_selecionada,
@@ -104,6 +95,9 @@ class AppCLI:
         )
 
         try:
+            id_gerado = self.repositorio.salvar_transacao(nova_transacao)
+            nova_transacao.id = id_gerado
+
             self.gerenciador.add_transacao(nova_transacao)
             print(f"A transação '{descricao}' foi cadastrada com sucesso.")
 
@@ -117,6 +111,8 @@ class AppCLI:
 
         except ValueError as e:
             print(f"Erro na operação: {e}")
+
+        print(f"Transação #{id_gerado} salva no banco de dados com sucesso.")
 
     def menu_exibir_saldo(self):
         saldo = self.gerenciador.calc_saldo_total()
@@ -181,8 +177,8 @@ class AppCLI:
                     print("O ID informado não pertence à lista exibida.")
                     return
 
-                if self.gerenciador.del_id(id_del):
-                    print(f"Transação ID {id_del} removida com sucesso.")
+                if self.repositorio.remover_transacao(id_del):
+                    print(f"Transação #{id_del} removida do banco de dados com sucesso.")
 
                     self.repositorio.salvar(self.gerenciador.transacoes)
                 else:
@@ -195,30 +191,50 @@ class AppCLI:
     def menu_definir_orc(self):
         print("\n--- Definir Teto de Orçamento ---")
         despesas_cat = [c for c in self.categorias if c.tipo == TipoTransacao.DESPESA]
+
+        if not despesas_cat:
+            print("Nenhuma categoria de despesa cadastrada.")
+            return
+
         for cat in despesas_cat:
             print(f"[{cat.id}] {cat.nome}")
 
         cat_id = ler_int("Escolha a Categoria de Despesa: ")
+
+        if not any(c.id == cat.id for c in despesas_cat):
+            print("Categoria inválida ou não é do tipo Despesa.")
+            return
+
         limite = ler_float("Informe o Limite Máximo Mensal: ")
         mes = ler_int("Mês (1-12): ")
         ano = ler_int("Ano (Ex: 2026): ")
 
         mes_ano_str = f"{mes:02d}/{ano}"
 
-        #   Atualiza se já existir ou cria um novo
-        orcamento_existente = next(
-            (o for o in self.gerenciador.orcamentos if o.categoria_id == cat_id and o.mes_ano == mes_ano_str),
-            None
+        novo_orc = Orcamento(
+            categoria_id=cat_id,
+            limite_mensal=limite,
+            mes_ano=mes_ano_str
         )
 
-        if orcamento_existente:
-            orcamento_existente.limite_mensal = limite
-        else:
-            self.gerenciador.orcamentos.append(
-                Orcamento(categoria_id=cat_id, limite_mensal=limite, mes_ano=mes_ano_str)
+        try:
+            self.repositorio.salvar_atualizar_orc(novo_orc)
+
+            #   Atualiza se já existir ou cria um novo
+            orcamento_existente = next(
+                (o for o in self.gerenciador.orcamentos if o.categoria_id == cat_id and o.mes_ano == mes_ano_str),
+                None
             )
 
-        print(f"Orçamento de R${limite:.2f} definido com sucesso para {mes_ano_str}.")
+            if orcamento_existente:
+                orcamento_existente.limite_mensal = limite
+            else:
+                self.gerenciador.orcamentos.append(novo_orc)
+
+            print(f"Orçamento de R${limite:.2f} definido com sucesso para {mes_ano_str}.")
+
+        except Exception as e:
+            print(f"ERR: problema ao salvar orçamento no banco de dados - > {e}")
 
     def menu_export_csv(self):
         try:
@@ -248,8 +264,6 @@ class AppCLI:
                 case "5":
                     self.menu_export_csv()
                 case "0":
-                    print("Salvando...")
-                    self.repositorio.salvar(self.gerenciador.transacoes)
                     print("Saindo...")
                     sys.exit(0)
                 case _:
