@@ -60,7 +60,7 @@ class AppCLI:
         print("-" * 30)
 
     def menu_cad_transacao(self):
-        # alerta = None
+        
         print("--- Nova Transação ---")
         descricao = input("Descrição (Ex: Aluguel, Mercado): ").strip()
         if not descricao:
