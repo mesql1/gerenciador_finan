@@ -107,7 +107,7 @@ class RepoSQLite:
                 t = Transacao(
                     id=row[0],
                     descricao=row[1],
-                    valor=[2],
+                    valor=row[2],
                     categoria=cat,
                     data=datetime.strptime(row[3], "%Y-%m-%d %H:%M:%S")
                 )

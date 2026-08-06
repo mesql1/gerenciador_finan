@@ -179,8 +179,6 @@ class AppCLI:
 
                 if self.repositorio.remover_transacao(id_del):
                     print(f"Transação #{id_del} removida do banco de dados com sucesso.")
-
-                    self.repositorio.salvar(self.gerenciador.transacoes)
                 else:
                     print("Não foi possível remover a transação.")
             case "N":
