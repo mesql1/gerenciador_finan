@@ -1,5 +1,4 @@
 import sys
-import csv
 from datetime import datetime
 from modelos import Categoria, Transacao, TipoTransacao, Orcamento
 from servicos import GerenciadorFin
