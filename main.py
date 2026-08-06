@@ -1,4 +1,5 @@
 import sys
+import csv
 from datetime import datetime
 from modelos import Categoria, Transacao, TipoTransacao, Orcamento
 from servicos import GerenciadorFin
@@ -221,9 +222,9 @@ class AppCLI:
         print(f"Orçamento de R${limite:.2f} definido com sucesso para {mes_ano_str}.")
 
     def menu_export_csv(self):
-        #   TODO: Testar e consertar esse problema de importação
         try:
-            export_csv(self.gerenciador.transacoes, "extrato.csv")
+            self.gerenciador.export_csv(self.gerenciador.transacoes)
+            print("\nExportação realizada com sucesso.")
         except ValueError as e:
             print(f"ERR: {e}")
         except PermissionError:

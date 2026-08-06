@@ -66,7 +66,7 @@ class GerenciadorFin:
                 return True
             return False
 
-    def export_csv(transacoes: list[Transacao], caminho_saida="extrato.csv"):
+    def export_csv(self, transacoes: list[Transacao], caminho_saida="extrato.csv"):
         if not transacoes:
             raise ValueError("Não há transações para exportar.")
 
