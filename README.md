@@ -39,7 +39,7 @@ financas_app/
 ├── repositorio.py   # Camada de persistência (carregamento/salvamento do banco de dados)
 ├── servicos.py      # Regras de negócio (cálculos de saldo, alertas e filtros)
 ├── gui.py           # Interface do usuário (Menu CLI e captura de entradas)
-└── financas.db (Gerado automaticamente ao salvar)
+└── financas.db      (Gerado automaticamente ao salvar)
 ```
 ##  Como Executar o Projeto
 
