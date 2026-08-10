@@ -22,7 +22,7 @@ O foco principal do projeto foi aplicar **conceitos reais de engenharia de softw
 -  **Categorização de Gastos:** Suporte nativo a categorias mapeadas com enums fortemente tipadas (`TipoTransacao.RECEITA` / `TipoTransacao.DESPESA`).
 -  **Alertas de Orçamento:** Defina limites mensais por categoria. O sistema avisa em tempo real se um novo gasto atingiu 80% ou estourou (100%+) o teto estipulado.
 -  **Cálculo de Saldo Geral e Mensal:** Algoritmos eficientes para apuração de saldo total e relatórios por mês/ano.
--  **Persistência de Dados (JSON):** Salvamento e carregamento automático do estado da aplicação com serialização/desserialização de objetos complexos e datas.
+-  **Persistência de Dados (SQL):** Salvamento e carregamento automático do estado da aplicação com serialização/desserialização de objetos complexos e datas.
 -  **Exportação para CSV:** Geração de extratos prontos para abertura no Microsoft Excel ou Google Planilhas (com codificação UTF-8-SIG e separadores regionais).
 -  **CLI Robusta:** Tratamento de exceções em tempo de execução para evitar quebras por entradas de dados inválidas no terminal.
 
@@ -39,7 +39,7 @@ financas_app/
 ├── repositorio.py   # Camada de persistência (carregamento/salvamento do JSON)
 ├── servicos.py      # Regras de negócio (cálculos de saldo, alertas e filtros)
 ├── main.py          # Interface do usuário (Menu CLI e captura de entradas)
-└── dados_financas.json (Gerado automaticamente ao salvar)
+└── financas.db (Gerado automaticamente ao salvar)
 ```
 ##  Como Executar o Projeto
 
@@ -65,7 +65,7 @@ python main.py
 
 Este projeto está sob desenvolvimento contínuo. As próximas etapas incluem:
 
-[ ] Migração para SQLite: Substituição do arquivo JSON por banco de dados relacional via sqlite3 nativo.
+[X] Migração para SQLite: Substituição do arquivo JSON por banco de dados relacional via sqlite3 nativo.
 
 [ ] Testes Automatizados: Implementação de cobertura de testes unitários com pytest para a camada de serviços e cálculos.
 
