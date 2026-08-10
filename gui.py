@@ -484,6 +484,7 @@ class AppGUI(ctk.CTk):
             self.atualizar_saldo()
             self.atualizar_tabela_ext()
             self.atualizar_lista_orcamentos()
+            self.atualizar_dashboard()
             self._mostrar_mensagem_status(f"Transação #{transacao_id} removida com sucesso!")
 
     def acao_exportar_csv(self):
