@@ -53,7 +53,7 @@ Python 3.10 ou superior instalado no sistema.
 
 ```Bash
 git clone [https://github.com/mesql1/gerenciador_finan.git](https://github.com/mesql1/gerenciador_finan.git)
-cd SEU_REPOSITORIO
+cd gerenciador-finan
 ```
 **Execute a aplicação**:
 
