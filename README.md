@@ -36,9 +36,9 @@ O código foi estruturado em camadas independentes para facilitar a manutenção
 financas_app/
 │
 ├── modelos.py       # Classes de domínio (Transacao, Categoria, Orcamento, Enums)
-├── repositorio.py   # Camada de persistência (carregamento/salvamento do JSON)
+├── repositorio.py   # Camada de persistência (carregamento/salvamento do banco de dados)
 ├── servicos.py      # Regras de negócio (cálculos de saldo, alertas e filtros)
-├── main.py          # Interface do usuário (Menu CLI e captura de entradas)
+├── gui.py          # Interface do usuário (Menu CLI e captura de entradas)
 └── financas.db (Gerado automaticamente ao salvar)
 ```
 ##  Como Executar o Projeto
