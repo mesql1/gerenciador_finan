@@ -69,7 +69,7 @@ Este projeto está sob desenvolvimento contínuo. As próximas etapas incluem:
 
 [ ] Testes Automatizados: Implementação de cobertura de testes unitários com pytest para a camada de serviços e cálculos.
 
-[ ] Visualização Gráfica: Integração com a biblioteca matplotlib para gerar gráficos de pizza por categoria e barras para evolução mensal.
+[X] Visualização Gráfica: Integração com a biblioteca matplotlib para gerar gráficos de pizza por categoria e barras para evolução mensal.
 
 [ ] Gerenciamento de Múltiplas Contas: Suporte a separação por carteiras (Ex: Cartão de Crédito, Conta Corrente, Dinheiro).
 
