@@ -216,6 +216,14 @@ class AppGUI(ctk.CTk):
         self.frame_dash_container = ctk.CTkFrame(self.tab_dashboard, corner_radius=10)
         self.frame_dash_container.pack(fill="both", expand=True, padx=10, pady=10)
 
+    #   Formata o texto exibido no gráfico de rosca
+    def formatar_rotulo(pct, allvals):
+        absolute = sum(allvals) * (pct / 100.0)
+
+        if pct < 3:
+            return ""
+        return f"{pct:.1f}%\n(R${absolute:.2f})"
+
     def atualizar_dashboard(self):
         #   Limpas canvas anterior
         if self.canvas_graficos:
@@ -246,6 +254,14 @@ class AppGUI(ctk.CTk):
                 nome_cat = t.categoria.nome
                 gastos_por_cat[nome_cat] = gastos_por_cat.get(nome_cat, 0.0) + t.valor
 
+        #   Formata o texto exibido no gráfico de rosca
+        def formatar_rotulo(pct, allvals):
+            absolute = sum(allvals) * (pct / 100.0)
+
+            if pct < 3:
+                return ""
+            return f"{pct:.1f}%\n(R${absolute:.2f})"
+
         if gastos_por_cat:
             labels = list(gastos_por_cat.keys())
             valores = list(gastos_por_cat.values())
@@ -255,13 +271,20 @@ class AppGUI(ctk.CTk):
             wedges, texts, autotexts = ax1.pie(
                 valores,
                 labels=labels,
-                autopct="%1.1f%%",
+                autopct=lambda pct: formatar_rotulo(pct, valores),
+                pctdistance=0.75,
                 startangle=140,
                 colors=cores,
-                textprops=dict(color=cor_texto),
+                textprops=dict(color=cor_texto, fontsize=9),
                 wedgeprops=dict(width=0.4, edgecolor=cor_fundo)
             )
             ax1.set_title("Despesas por Categoria", color=cor_texto, fontsize=12, fontweight="bold")
+
+            #   Ajusta a cor dos números das porcentagens
+            for autotext in autotexts:
+                autotext.set_color("white")
+                autotext.set_weight("bold")
+
         else:
             ax1.set_facecolor(cor_fundo)
             ax1.text(0.5, 0.5, "Sem despesas", ha="center", va="center", color=cor_texto)
