@@ -52,9 +52,9 @@ class AppGUI(ctk.CTk):
         self.atualizar_lista_orc()
         self.atualizar_dashboard()
 
-        #   ---
-        #   LAYOUT
-        #   ---
+    #   ---
+    #   LAYOUT
+    #   ---
 
     def _criar_header(self):
         #   Cabeçalho com título e cartão do saldo atual
@@ -341,6 +341,16 @@ class AppGUI(ctk.CTk):
             lbl_info = ctk.CTkLabel(frame_item, text=info_text, anchor="w")
             lbl_info.pack(side="left", padx=10, pady=8)
 
+            btn_remover = ctk.CTkButton(
+                frame_item,
+                text="Remover",
+                width=30,
+                fg_color="#e63946",
+                hover_color="#b82532",
+                command=lambda id_del=t.id: self.acao_remover_transacao(id_del)
+            )
+            btn_remover.pack(side="right", padx=10)
+
             lbl_val = ctk.CTkLabel(
                 frame_item,
                 text=f"{sinal} R${t.valor:.2f}",
@@ -448,9 +458,9 @@ class AppGUI(ctk.CTk):
             percentual = min(gastos / orc.limite_mensal, 1.0)
 
             if percentual >= 1.0:
-                cor_progresso = "e63946"
+                cor_progresso = "#e63946"
             elif percentual >= 0.8:
-                cor_progresso = "f1c40f"
+                cor_progresso = "#f1c40f"
             else:
                 cor_progresso = "#2ba84a"
 
@@ -508,7 +518,7 @@ class AppGUI(ctk.CTk):
         top.geometry("380x150")
         top.attributes("-topmost", True)
 
-        cor = "e63946" if erro else "#2ba84a"
+        cor = "#e63946" if erro else "#2ba84a"
         lbl = ctk.CTkLabel(top, text=texto, wraplength=320, text_color=cor, font=ctk.CTkFont(size=13, weight="bold"))
         lbl.pack(expand=True, padx=20, pady=20)
 
