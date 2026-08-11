@@ -480,12 +480,25 @@ class AppGUI(ctk.CTk):
             frame_card = ctk.CTkFrame(self.scroll_orcamentos, corner_radius=10)
             frame_card.pack(fill="x", pady=6, padx=5)
 
+            frame_top_card = ctk.CTkFrame(frame_card, fg_color="transparent")
+            frame_top_card.pack(fill="x", padx=15, pady=(10, 5))
+
             lbl_orc_info = ctk.CTkLabel(
                 frame_card,
                 text=f"{nome_cat} ({orc.mes_ano}) - Gasto: R${gastos:.2f} / R${orc.limite_mensal:.2f} ({percentual*100:.1f}%)",
                 font=ctk.CTkFont(weight="bold")
             )
             lbl_orc_info.pack(anchor="w", padx=15, pady=(10, 5))
+
+            btn_del_orc = ctk.CTkButton(
+                frame_top_card,
+                text="Remover",
+                width=30,
+                fg_color="#e63946",
+                hover_color="#b82532",
+                command=lambda c_id=orc.categoria_id, m_a=orc.mes_ano: self.acao_remover_orc(c_id, m_a)
+            )
+            btn_del_orc.pack(side="right")
 
             prog_bar = ctk.CTkProgressBar(frame_card, progress_color=cor_progresso)
             prog_bar.set(percentual)
@@ -499,6 +512,20 @@ class AppGUI(ctk.CTk):
             self.atualizar_lista_orcamentos()
             self.atualizar_dashboard()
             self._mostrar_mensagem_status(f"Transação #{transacao_id} removida com sucesso!")
+
+    def acao_remover_orc(self, categoria_id: int, mes_ano: str):
+        if self.repositorio.remover_orc(categoria_id, mes_ano):
+            self.gerenciador.orcamentos = [
+                o for o in self.gerenciador.orcamentos
+                if not (o.categoria_id == categoria_id and o.mes_ano == mes_ano)
+            ]
+
+            self.atualizar_lista_orc()
+            self.update_idletasks()
+
+            self._mostrar_mensagem_status("Orçamento removido com sucesso.")
+        else:
+            self._mostrar_mensagem_status("Erro ao tentar remover o orçamento.")
 
     def acao_exportar_csv(self):
         if not self.gerenciador.transacoes:
