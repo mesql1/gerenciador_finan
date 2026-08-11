@@ -33,8 +33,8 @@ class AppGUI(ctk.CTk):
         #   Componentes visuais
         self._criar_header()
 
-        self.tabview = ctk.CTkTabview(self)
-        self.tabview.pack(fill="both", expand=True, padx=20, pady=20)
+        self.tabview = ctk.CTkTabview(self, command=self._trocar_aba)
+        self.tabview.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         self.tab_transacoes = self.tabview.add("Transações e Extrato")
         self.tab_dashboard = self.tabview.add("Dashboard e Gráficos")
@@ -51,6 +51,7 @@ class AppGUI(ctk.CTk):
         self.atualizar_tabela_ext()
         self.atualizar_lista_orc()
         self.atualizar_dashboard()
+        self._trocar_aba()
 
     #   ---
     #   LAYOUT
@@ -308,9 +309,11 @@ class AppGUI(ctk.CTk):
 
         #   Renderização da figura no Canvas do Tkinter
         self.canvas_graficos = FigureCanvasTkAgg(fig, master=self.frame_dash_container)
-        self.canvas_graficos.draw()
+        self.canvas_graficos.draw_idle()
         self.canvas_graficos.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
         plt.close(fig)
+
+        self.update_idletasks()
 
     def atualizar_saldo(self):
         saldo = self.gerenciador.calc_saldo_total()
@@ -358,6 +361,16 @@ class AppGUI(ctk.CTk):
                 font=ctk.CTkFont(weight="bold")
             )
             lbl_val.pack(side="right", padx=15)
+
+    def _trocar_aba(self):
+        #   Executado automaticamente sempre que o usuário clica em qualquer aba
+        aba_atual = self.tabview.get()
+
+        if aba_atual == "Transações e Extrato": self.atualizar_tabela_ext()
+        elif aba_atual == "Dashboard e Gráficos": self.atualizar_dashboard()
+        elif aba_atual == "Orçamentos": self.atualizar_lista_orc()
+
+        self.update_idletasks()
 
     def acao_cadastrar(self):
         descricao = self.entry_descricao.get().strip()
