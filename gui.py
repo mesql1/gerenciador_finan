@@ -33,6 +33,13 @@ class AppGUI(ctk.CTk):
         #   Componentes visuais
         self._criar_header()
 
+        self.lbl_status = ctk.CTkLabel(
+            self,
+            text="",
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        self.lbl_status.pack(side="bottom", pady=8)
+
         self.tabview = ctk.CTkTabview(self, command=self._trocar_aba)
         self.tabview.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
@@ -553,15 +560,12 @@ class AppGUI(ctk.CTk):
             self._mostrar_mensagem_status(f"Erro ao exportar: {e}")
 
     def _mostrar_mensagem_status(self, texto: str, erro: bool = False):
-        #   Janele popup simples para exibir avisos/alertas de erro
-        top = ctk.CTkToplevel(self)
-        top.title("Aviso")
-        top.geometry("380x150")
-        top.attributes("-topmost", True)
-
         cor = "#e63946" if erro else "#2ba84a"
-        lbl = ctk.CTkLabel(top, text=texto, wraplength=320, text_color=cor, font=ctk.CTkFont(size=13, weight="bold"))
-        lbl.pack(expand=True, padx=20, pady=20)
+
+        self.lbl_status.configure(text=texto, text_color=cor)
+        self.update_idletasks()
+
+        self.after(4000, lambda: self.lbl_status.configure(text=""))
 
 if __name__ == "__main__":
     app = AppGUI()
