@@ -486,7 +486,10 @@ class AppGUI(ctk.CTk):
             widget.destroy()
 
         if not self.gerenciador.orcamentos:
-            ctk.CTkLabel(self.scroll_orcamentos, text="Nenhum orçamento cadastrado.").pack(pady=20)
+            ctk.CTkLabel(
+                self.scroll_orcamentos, 
+                text="Nenhum orçamento cadastrado."
+            ).pack(pady=20)
             return
 
         for orc in self.gerenciador.orcamentos:
@@ -504,6 +507,7 @@ class AppGUI(ctk.CTk):
             )
 
             percentual = min(gastos / orc.limite_mensal, 1.0)
+            pct_exibicao = (gastos / orc.limite_mensal) * 100
 
             if percentual >= 1.0:
                 cor_progresso = "#e63946"
@@ -512,39 +516,54 @@ class AppGUI(ctk.CTk):
             else:
                 cor_progresso = "#2ba84a"
 
-            frame_card = ctk.CTkFrame(self.scroll_orcamentos, corner_radius=10)
-            frame_card.pack(fill="x", pady=6, padx=5)
+            frame_card = ctk.CTkFrame(
+                self.scroll_orcamentos, 
+                corner_radius=8,
+                border_width=1,
+                border_color=("gray70", "gray35"),
+                fg_color=("gray90", "gray18")
+            )
+            frame_card.pack(fill="x", pady=6, padx=8)
 
             frame_top_card = ctk.CTkFrame(frame_card, fg_color="transparent")
-            frame_top_card.pack(fill="x", padx=15, pady=(10, 5))
+            frame_top_card.pack(fill="x", padx=12, pady=(10, 2))
 
             lbl_orc_info = ctk.CTkLabel(
-                frame_card,
-                text=f"{nome_cat} ({orc.mes_ano}) - Gasto: R${gastos:.2f} / R${orc.limite_mensal:.2f} ({percentual*100:.1f}%)",
-                font=ctk.CTkFont(weight="bold")
+                frame_top_card,
+                text=f"{nome_cat} ({orc.mes_ano})",
+                font=ctk.CTkFont(size=14, weight="bold")
             )
-            lbl_orc_info.pack(anchor="w", padx=15, pady=(10, 5))
+            lbl_orc_info.pack(side="left")
 
             btn_del_orc = ctk.CTkButton(
                 frame_top_card,
                 text="Remover",
                 width=30,
+                height=30,
                 fg_color="#e63946",
                 hover_color="#b82532",
                 command=lambda c_id=orc.categoria_id, m_a=orc.mes_ano: self.acao_remover_orc(c_id, m_a)
             )
             btn_del_orc.pack(side="right")
 
-            prog_bar = ctk.CTkProgressBar(frame_card, progress_color=cor_progresso)
+            lbl_val = ctk.CTkLabel(
+                frame_card,
+                text=f"Gasto: R${gastos:.2f} / R${orc.limite_mensal} ({pct_exibicao:.1f}%)",
+                font=ctk.CTkFont(size=12),
+                text_color=("gray30", "gray75")
+            )
+            lbl_val.pack(anchor="w", padx=12, pady=(0, 6))
+
+            prog_bar = ctk.CTkProgressBar(frame_card, progress_color=cor_progresso, height=10)
             prog_bar.set(percentual)
-            prog_bar.pack(fill="x", padx=15, pady=(0, 10))
+            prog_bar.pack(fill="x", padx=12, pady=(0, 12))
             
     def acao_remover_transacao(self, transacao_id: int):
         if self.repositorio.remover_transacao(transacao_id):
             self.gerenciador.transacoes = [t for t in self.gerenciador.transacoes if t.id != transacao_id]
             self.atualizar_saldo()
             self.atualizar_tabela_ext()
-            self.atualizar_lista_orcamentos()
+            self.atualizar_lista_orc()
             self.atualizar_dashboard()
             self._mostrar_mensagem_status(f"Transação #{transacao_id} removida com sucesso!")
 
