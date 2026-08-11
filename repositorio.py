@@ -118,6 +118,7 @@ class RepoSQLite:
         with self._obter_conexao() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM transacoes WHERE id = ?", (transacao_id,))
+            conn.commit()
             return cursor.rowcount > 0
 
     def remover_orc(self, categoria_id: int, mes_ano: str) -> bool:
@@ -125,6 +126,7 @@ class RepoSQLite:
         with self._obter_conexao() as conn:
             cursor = conn.cursor()
             cursor.execute(sql, (categoria_id, mes_ano))
+            conn.commit()
             return cursor.rowcount > 0
 
     # ---

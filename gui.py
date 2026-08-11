@@ -509,12 +509,9 @@ class AppGUI(ctk.CTk):
             percentual = min(gastos / orc.limite_mensal, 1.0)
             pct_exibicao = (gastos / orc.limite_mensal) * 100
 
-            if percentual >= 1.0:
-                cor_progresso = "#e63946"
-            elif percentual >= 0.8:
-                cor_progresso = "#f1c40f"
-            else:
-                cor_progresso = "#2ba84a"
+            if percentual >= 1.0: cor_progresso = "#e63946"
+            elif percentual >= 0.8: cor_progresso = "#f1c40f"
+            else:cor_progresso = "#2ba84a"
 
             frame_card = ctk.CTkFrame(
                 self.scroll_orcamentos, 
