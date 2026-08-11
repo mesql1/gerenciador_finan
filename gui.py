@@ -40,6 +40,8 @@ class AppGUI(ctk.CTk):
         )
         self.lbl_status.pack(side="bottom", pady=8)
 
+        self._timer_status = None
+
         self.tabview = ctk.CTkTabview(self, command=self._trocar_aba)
         self.tabview.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
@@ -447,7 +449,7 @@ class AppGUI(ctk.CTk):
             self.repositorio.salvar_atualizar_orc(novo_orc)
             self.gerenciador.orcamentos = self.repositorio.carregar_orcamentos()
 
-            self.atualizar_lista_orcamentos()
+            self.atualizar_lista_orc()
             self._mostrar_mensagem_status("Orçamento gravado com sucesso!")
 
         except ValueError:
@@ -562,10 +564,18 @@ class AppGUI(ctk.CTk):
     def _mostrar_mensagem_status(self, texto: str, erro: bool = False):
         cor = "#e63946" if erro else "#2ba84a"
 
+        if getattr(self, "_timer_status", None) is not None:
+            self.after_cancel(self._timer_status)
+            self._timer_status = None
+
         self.lbl_status.configure(text=texto, text_color=cor)
         self.update_idletasks()
 
-        self.after(4000, lambda: self.lbl_status.configure(text=""))
+        self._timer_status = self.after(4000, self._timer_status)
+
+    def _limpar_status(self):
+        self.lbl_status.configure(text="")
+        self._timer_status = None
 
 if __name__ == "__main__":
     app = AppGUI()
