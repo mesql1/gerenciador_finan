@@ -337,24 +337,50 @@ class AppGUI(ctk.CTk):
             widget.destroy()
 
         if not self.gerenciador.transacoes:
-            lbl_vazio = ctk.CTkLabel(self.scroll_transacoes, text="Nenhuma transação cadastrada.")
-            lbl_vazio.pack(pady=20)
+            ctk.CTkLabel(
+                self.scroll_transacoes,
+                text="Nenhuma transação cadastrada.",
+            ).pack(pady=20)
             return
 
         for t in self.gerenciador.transacoes:
-            frame_item = ctk.CTkFrame(self.scroll_transacoes, fg_color=("gray85", "gray20"))
-            frame_item.pack(fill="x", pady=4, padx=5)
+            frame_bloco = ctk.CTkFrame(
+                self.scroll_transacoes,
+                corner_radius=8,
+                border_width=1,
+                border_color=("gray70", "gray35"),
+                fg_color=("gray90", "gray18")
+            )
+            frame_bloco.pack(fill="x", pady=6, padx=8)
 
             sinal = "+" if t.categoria.tipo == TipoTransacao.RECEITA else "-"
             cor_valor = "#2ba84a" if t.categoria.tipo == TipoTransacao.RECEITA else "#e63946"
 
             info_text = f"#{t.id} | {t.data.strftime('%d/%m/%Y')} | {t.descricao} ({t.categoria.nome})"
 
-            lbl_info = ctk.CTkLabel(frame_item, text=info_text, anchor="w")
-            lbl_info.pack(side="left", padx=10, pady=8)
+            frame_info = ctk.CTkFrame(frame_bloco, fg_color="transparent")
+            frame_info.pack(side="left", padx=12, pady=10)
+
+            lbl_descricao = ctk.CTkLabel(
+                frame_info,
+                text=f"#{t.id} - {t.descricao}",
+                font=ctk.CTkFont(size=14, weight="bold"),
+                anchor="w"
+            )
+            lbl_descricao.pack(anchor="w")
+
+            detalhes_texto = f"{t.categoria.nome} - {t.data.strftime('%d/%m/%Y')}"
+            lbl_detalhes = ctk.CTkLabel(
+                frame_info,
+                text=detalhes_texto,
+                font=ctk.CTkFont(size=11),
+                text_color=("gray40", "gray65"),
+                anchor="w"
+            )
+            lbl_detalhes.pack(anchor="w", pady=(2, 0))
 
             btn_remover = ctk.CTkButton(
-                frame_item,
+                frame_bloco,
                 text="Remover",
                 width=30,
                 fg_color="#e63946",
@@ -364,12 +390,12 @@ class AppGUI(ctk.CTk):
             btn_remover.pack(side="right", padx=10)
 
             lbl_val = ctk.CTkLabel(
-                frame_item,
+                frame_bloco,
                 text=f"{sinal} R${t.valor:.2f}",
                 text_color=cor_valor,
                 font=ctk.CTkFont(weight="bold")
             )
-            lbl_val.pack(side="right", padx=15)
+            lbl_val.pack(side="right", padx=10, pady=10)
 
     def _trocar_aba(self):
         #   Executado automaticamente sempre que o usuário clica em qualquer aba
