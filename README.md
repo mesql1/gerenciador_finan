@@ -67,7 +67,7 @@ Este projeto está sob desenvolvimento contínuo. As próximas etapas incluem:
 
 [X] Migração para SQLite: Substituição do arquivo JSON por banco de dados relacional via sqlite3 nativo.
 
-[ ] Testes Automatizados: Implementação de cobertura de testes unitários com pytest para a camada de serviços e cálculos.
+[X] Testes Automatizados: Implementação de cobertura de testes unitários com pytest para a camada de serviços e cálculos.
 
 [X] Visualização Gráfica: Integração com a biblioteca matplotlib para gerar gráficos de pizza por categoria e barras para evolução mensal.
 
