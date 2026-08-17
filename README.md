@@ -71,7 +71,7 @@ Este projeto está sob desenvolvimento contínuo. As próximas etapas incluem:
 
 [X] Visualização Gráfica: Integração com a biblioteca matplotlib para gerar gráficos de pizza por categoria e barras para evolução mensal.
 
-[ ] Gerenciamento de Múltiplas Contas: Suporte a separação por carteiras (Ex: Cartão de Crédito, Conta Corrente, Dinheiro).
+[X] Gerenciamento de Múltiplas Contas: Suporte a separação por carteiras (Ex: Cartão de Crédito, Conta Corrente, Dinheiro).
 
 ## Licença
 
