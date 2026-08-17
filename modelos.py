@@ -18,6 +18,7 @@ class Transacao:
     descricao: str
     valor: float
     categoria: Categoria
+    conta: Conta
     data: datetime
 
 @dataclass

@@ -91,6 +91,16 @@ class RepoSQLite:
             conn.commit()
             return cursor.lastrowid
 
+    def remover_conta(self, conta_id: int) -> bool:
+        with self._obter_conexao() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("DELETE FROM transacoes WHERE conta_id = ?", (conta_id,))
+            cursor.execute("DELETE FROM contas WHERE id = ?", (conta_id,))
+
+            conn.commit()
+            return cursor.rowcount > 0
+ 
     #   Popula a tabela com categorias iniciais caso esteja vazia
     def _inicializar_categorias_padrao(self):
         categorias_iniciais = [

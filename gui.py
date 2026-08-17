@@ -397,7 +397,19 @@ class AppGUI(ctk.CTk):
                 font=ctk.CTkFont(size=15, weight="bold"),
                 text_color=cor_saldo
             )
-            lbl_saldo.pack(side="right", padx=16, pady=14)
+            lbl_saldo.pack(side="right", padx=12, pady=14)
+
+            btn_del_conta = ctk.CTkButton(
+                frame_card,
+                text="Remover",
+                width=65,
+                height=28,
+                font=ctk.CTkFont(size=11),
+                fg_color="#3F3F46",
+                hover_color="#991B1B",
+                command=lambda c_id=conta.id, c_nome=conta.nome: self.acao_remover_conta(c_id, c_nome)
+            )
+            btn_del_conta.pack(side="right", padx=12, pady=14)
 
     def acao_cadastrar_conta(self):
         nome = self.entry_conta_nome.get().strip()
@@ -779,6 +791,29 @@ class AppGUI(ctk.CTk):
             self.atualizar_dashboard()
             self._trocar_aba()
             self._mostrar_mensagem_status(f"Transação #{transacao_id} removida com sucesso!")
+
+    def acao_remover_conta(self, conta_id: int, conta_nome: str):
+        if len(self.contas) <= 1:
+            self._mostrar_mensagem_status("O sistema precisa manter ao menos uma conta ativa.", erro=True)
+            return
+
+        if self.repositorio.remover_conta(conta_id):
+            self.contas = [c for c in self.contas if c.id != conta_id]
+            self.gerenciador.transacoes = [t for t in self.gerenciador.transacoes if t.conta.id != conta_id]
+
+            nomes_contas = [f"{c.id} - {c.nome}" for c in self.contas]
+            self.combo_contas.configure(values=nomes_contas)
+            self.combo_contas.set(nomes_contas[0])
+
+            self.atualizar_saldo()
+            self.atualizar_lista_contas()
+            self.atualizar_tabela_ext()
+            self.atualizar_dashboard()
+            self.update_idletasks()
+
+            self._mostrar_mensagem_status(f"Conta '{conta_nome}' e suas transações foram removidas.")
+        else:
+            self._mostrar_mensagem_status("Erro ao tentar remover conta.", erro=True)
 
     def acao_remover_orc(self, categoria_id: int, mes_ano: str):
         if self.repositorio.remover_orc(categoria_id, mes_ano):
