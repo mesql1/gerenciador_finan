@@ -1,6 +1,7 @@
 import sqlite3
+from typing import List
 from datetime import datetime
-from modelos import Transacao, Categoria, TipoTransacao, Orcamento
+from modelos import Transacao, Categoria, TipoTransacao, Orcamento, Conta
 
 class RepoSQLite:
     def __init__(self, db_path="fincancas.db"):
@@ -30,7 +31,9 @@ class RepoSQLite:
                     valor REAL NOT NULL,
                     data TEXT NOT NULL,
                     categoria_id INTEGER NOT NULL,
-                    FOREIGN KEY (categoria_id) REFERENCES categorias(id)
+                    conta_id INTEGER NOT NULL,
+                    FOREIGN KEY (categoria_id) REFERENCES categorias(id),
+                    FOREIGN KEY (conta_id) REFERENCES contas(id)
                 );
             """)
             cursor.execute("""
@@ -43,6 +46,50 @@ class RepoSQLite:
                     UNIQUE(categoria_id, mes_ano)
                 );
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS contas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nome TEXT NOT NULL UNIQUE,
+                    saldo_inicial REAL DEFAULT 0.0
+                )
+            """)
+
+            cursor.execute("SELECT COUNT(*) FROM contas")
+            if  cursor.fetchone()[0] == 0: 
+                cursor.executemany(
+                    "INSERT INTO contas (nome, saldo_inicial) VALUES (?, ?)",
+                    [("Conta Corrente", 0.0), ("Carteira", 0.0), ("Reserva/Poupança", 0.0)]
+                )
+
+            cursor.execute("SELECT COUNT(*) FROM categorias")
+            if cursor.fetchone()[0] == 0:
+                cursor.executemany(
+                    "INSERT INTO categorias (nome, tipo) VALUES (?, ?)",
+                    [
+                        ("Salário", "Receita"),
+                        ("Investimentos", "Receita"),
+                        ("Alimentação", "Despesa"),
+                        ("Moradia", "Despesa"),
+                        ("Transporte", "Despesa"),
+                        ("Lazer", "Despesa")
+                    ]
+                )
+            
+            conn.commit()
+
+    def listar_contas(self) -> List[Conta]:
+        with self._obter_conexao() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, nome, saldo_inicial FROM contas")
+            return [Conta(id=row[0], nome=row[1], saldo_inicial=row[2]) for row in cursor.fetchall()]
+
+    def salvar_conta(self, conta: Conta) -> int:
+        sql = "INSERT INTO contas (nome, saldo_inicial) VALUES (?, ?)"
+        with self._obter_conexao() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, (conta.nome, conta.saldo_inicial))
+            conn.commit()
+            return cursor.lastrowid
 
     #   Popula a tabela com categorias iniciais caso esteja vazia
     def _inicializar_categorias_padrao(self):
@@ -77,38 +124,43 @@ class RepoSQLite:
                 Categoria(id=row[0], nome=row[1], tipo=TipoTransacao(row[2]))
                 for row in linhas
             ]
+        
     def salvar_transacao(self, transacao: Transacao) -> int:
         data_str = transacao.data.strftime("%Y-%m-%d %H:%M:%S")
         with self._obter_conexao() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO transacoes (descricao, valor, data, categoria_id) 
-                VALUES (?, ?, ?, ?)
-            """, (transacao.descricao, transacao.valor, data_str, transacao.categoria.id))
+                INSERT INTO transacoes (descricao, valor, data, categoria_id, conta_id) 
+                VALUES (?, ?, ?, ?, ?)
+            """, (transacao.descricao, transacao.valor, data_str, transacao.categoria.id, transacao.conta.id))
+            conn.commit()
             return cursor.lastrowid
 
     #   Realiza um JOIN entre transacoes e categorias para carregar a lista completa
     def carregar_transacoes(self) -> list[Transacao]:
         sql = """
-            SELECT t.id, t.descricao, t.valor, t.data, c.id, c.nome, c.tipo
+            SELECT  t.id, t.descricao, t.valor, t.data,
+                    c.id, c.nome, c.tipo,
+                    ct.id, ct.nome, ct.saldo_inicial
             FROM transacoes t
-            INNER JOIN categorias c ON t.categoria_id = c.id
+            INNER JOIN categorias c ON categoria_id = c.id
+            INNER JOIN contas ct ON t.conta_id = ct.id
             ORDER BY t.data DESC
         """
-
         with self._obter_conexao() as conn:
             cursor = conn.cursor()
             cursor.execute(sql)
-            linhas = cursor.fetchall()
 
             transacoes = []
-            for row in linhas:
+            for row in cursor.fetchall():
                 cat = Categoria(id=row[4], nome=row[5], tipo=TipoTransacao(row[6]))
+                conta = Conta(id=row[7], nome=row[8], saldo_inicial=row[9])
                 t = Transacao(
                     id=row[0],
                     descricao=row[1],
                     valor=row[2],
                     categoria=cat,
+                    conta=conta,
                     data=datetime.strptime(row[3], "%Y-%m-%d %H:%M:%S")
                 )
                 transacoes.append(t)

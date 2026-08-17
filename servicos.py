@@ -13,6 +13,16 @@ class GerenciadorFin:
             raise ValueError("O valor da transação deve ser maior que zero.")
         self.transacoes.append(transacao)
 
+    def calc_saldo_conta(self, conta_id: int) -> float:
+        saldo = 0.0
+        for t in self.transacoes:
+            if t.conta.id == conta_id:
+                if t.categoria.tipo == TipoTransacao.RECEITA:
+                    saldo += t.valor
+                else:
+                    saldo -= t.valor
+        return saldo
+
     def calc_saldo_total(self) -> float:
         receitas = 0.0
         despesas = 0.0

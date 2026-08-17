@@ -25,3 +25,9 @@ class Orcamento:
     categoria_id: int
     limite_mensal: float
     mes_ano: str #  formato MM/AAAA
+
+@dataclass
+class Conta:
+    id: int
+    nome: str
+    saldo_inicial: float = 0.0

@@ -1,10 +1,11 @@
 import csv
+import sqlite3
 import customtkinter as ctk
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from modelos import Transacao, TipoTransacao, Categoria, Orcamento
+from modelos import Transacao, TipoTransacao, Categoria, Orcamento, Conta
 from servicos import GerenciadorFin
 from repositorio import RepoSQLite
 
@@ -21,24 +22,28 @@ COLOR_INCOME = "#10B981"
 COLOR_EXPENSE = "#EF4444"
 COLOR_WARNING = "#F59E0B"
 
+#   TODO: Consertar problema da listagem das contas
+
 class AppGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         #   Configurações da janela
         self.title("Gerenciador de Finanças Pessoais")
-        self.geometry("980x740")
+        self.geometry("1050x760")
         self.resizable(True, True)
 
         #   Camada de Dados e Serviços
-        self.repositorio = RepoSQLite("financas.db")
+        self.repositorio = RepoSQLite("financas_1.0.db")
         self.gerenciador = GerenciadorFin()
 
         self.categorias = self.repositorio.listar_categorias()
+        self.contas = self.repositorio.listar_contas()
         self.gerenciador.transacoes = self.repositorio.carregar_transacoes()
         self.gerenciador.orcamentos = self.repositorio.carregar_orcamentos()
 
         self.canvas_graficos = None
+        self._timer_status = None
 
         #   Componentes visuais
         self._criar_header()
@@ -63,17 +68,20 @@ class AppGUI(ctk.CTk):
 
         self.tab_transacoes = self.tabview.add("Transações e Extrato")
         self.tab_dashboard = self.tabview.add("Dashboard e Gráficos")
+        self.tab_contas = self.tabview.add("Contas")
         self.tab_orcamentos = self.tabview.add("Orçamentos")
         self.tab_exportar = self.tabview.add("Exportar Dados")
 
         self._construir_aba_transacoes()
         self._construir_aba_dashboard()
+        self._construir_aba_contas()
         self._construir_aba_orcamentos()
         self._construir_aba_exportar()
         
         #   Atualização da tela inicial com dados
         self.atualizar_saldo()
         self.atualizar_tabela_ext()
+        self.atualizar_lista_contas()
         self.atualizar_lista_orc()
         self.atualizar_dashboard()
         self._trocar_aba()
@@ -146,19 +154,22 @@ class AppGUI(ctk.CTk):
         )
         self.frame_form.pack(fill="x", padx=10, pady=10)
 
+        self.frame_form.grid_columnconfigure((0, 1), weight=2)
+        self.frame_form.grid_columnconfigure(2, weight=1)
+
         self.entry_descricao = ctk.CTkEntry(
             self.frame_form,
             placeholder_text="Descrição do lançamento",
             height=36
         )
-        self.entry_descricao.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
+        self.entry_descricao.grid(row=0, column=0, columnspan=2, padx=10, pady=(12, 6), sticky="ew")
 
         self.entry_valor = ctk.CTkEntry(
             self.frame_form,
             placeholder_text="Valor (ex: 150.00)",
             height=36
         )
-        self.entry_valor.grid(row=0, column=1, padx=12, pady=12, sticky="ew")
+        self.entry_valor.grid(row=0, column=2, padx=10, pady=(12, 6), sticky="ew")
 
         nomes_cat = [f"{c.id} - {c.nome} ({c.tipo.value})" for c in self.categorias]
         self.combo_categoria = ctk.CTkOptionMenu(
@@ -166,7 +177,11 @@ class AppGUI(ctk.CTk):
             values=nomes_cat,
             height=36
         )
-        self.combo_categoria.grid(row=0, column=2, padx=12, pady=12, sticky="ew")
+        self.combo_categoria.grid(row=1, column=0, padx=10, pady=(6, 12), sticky="ew")
+
+        nomes_contas = [f"{c.id} - {c.nome}" for c in self.contas]
+        self.combo_contas = ctk.CTkOptionMenu(self.frame_form, values=nomes_contas, height=36)
+        self.combo_contas.grid(row=1, column=1, padx=10, pady=(6, 12), sticky="ew")
 
         self.btn_salvar = ctk.CTkButton(
             self.frame_form,
@@ -177,7 +192,7 @@ class AppGUI(ctk.CTk):
             hover_color="#1D4ED8",
             command=self.acao_cadastrar
         )
-        self.btn_salvar.grid(row=0, column=3, padx=12, pady=12)
+        self.btn_salvar.grid(row=1, column=2, padx=10, pady=(6, 12), sticky="ew")
         self.frame_form.grid_columnconfigure((0, 1, 2), weight=1)
 
         #   Extrato com Scroll
@@ -310,6 +325,112 @@ class AppGUI(ctk.CTk):
     #   ---
     #   AÇÕES E REGRAS DE NEGÓCIO DA INTERFACE
     #   ---
+
+    def _construir_aba_contas(self):
+        self.frame_conta_form = ctk.CTkFrame(
+            self.tab_contas,
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        self.frame_conta_form.pack(fill="x", padx=10, pady=10)
+
+        self.entry_conta_nome = ctk.CTkEntry(
+            self.frame_conta_form,
+            placeholder_text="Nome da Nova Conta (ex: Nubank, Inter, etc...)",
+            height=36
+        )
+        self.entry_conta_nome.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
+
+        self.btn_salvar_conta = ctk.CTkButton(
+            self.frame_conta_form,
+            text="Criar Conta",
+            font=ctk.CTkFont(weight="bold"),
+            height=36,
+            fg_color="#2563EB",
+            hover_color="#1D4ED8",
+            command=self.acao_cadastrar_conta
+        )
+        self.btn_salvar_conta.grid(row=0, column=1, padx=12, pady=12)
+        self.frame_conta_form.grid_columnconfigure(0, weight=1)
+
+        self.scroll_contas = ctk.CTkScrollableFrame(self.tab_contas, fg_color="transparent")
+        self.scroll_contas.pack(fill="both", expand=True, padx=10, pady=10)
+
+    def atualizar_lista_contas(self):
+        for widget in self.scroll_contas.winfo_children():
+            widget.destroy()
+
+        if not self.contas:
+            ctk.CTkLabel(
+                self.scroll_contas,
+                text="Nenhuma conta cadastrada.",
+                text_color=COLOR_TEXT_MUTED
+            ).pack(pady=20)
+            return
+
+        for conta in self.contas:
+            saldo_conta = self.gerenciador.calc_saldo_conta(conta.id)
+            cor_saldo = COLOR_INCOME if saldo_conta >= 0 else COLOR_EXPENSE
+
+            frame_card = ctk.CTkFrame(
+                self.scroll_contas,
+                corner_radius=6,
+                border_width=1,
+                border_color=COLOR_BORDER_DARK,
+                fg_color=COLOR_CARD_DARK
+            )
+            frame_card.pack(fill="x", pady=4, padx=4)
+
+            lbl_nome = ctk.CTkLabel(
+                frame_card,
+                text=f"{conta.nome}",
+                font=ctk.CTkFont(size=14, weight="bold"),
+                text_color=COLOR_TEXT_MAIN
+            )
+            lbl_nome.pack(side="left", padx=16, pady=14)
+
+            lbl_saldo = ctk.CTkLabel(
+                frame_card,
+                text=f"R${saldo_conta:.2f}",
+                font=ctk.CTkFont(size=15, weight="bold"),
+                text_color=cor_saldo
+            )
+            lbl_saldo.pack(side="right", padx=16, pady=14)
+
+    def acao_cadastrar_conta(self):
+        nome = self.entry_conta_nome.get().strip()
+        if not nome:
+            self._mostrar_mensagem_status("Digite o nome da conta.", erro=True)
+            return
+
+        if any(c.nome.lower() == nome.lower() for c in self.contas):
+            self._mostrar_mensagem_status(f"A conta '{nome}' já está cadastrada.", erro=True)
+            return
+
+        nova_conta = Conta(id=0, nome=nome, saldo_inicial=0.0)
+        try:
+            id_gerado = self.repositorio.salvar_conta(nova_conta)
+            nova_conta.id = id_gerado
+            self.contas.append(nova_conta)
+
+            nomes_conta = [f"{c.id} - {c.nome}" for c in self.contas]
+            self.combo_contas.configure(values=nomes_conta)
+
+            self.entry_conta_nome.delete(0, "end")
+            
+            self.atualizar_lista_contas()
+
+            self.scroll_contas.update()
+            self.update_idletasks()
+
+            self._mostrar_mensagem_status(f"Conta '{nome}' criada com sucesso.")
+
+        except sqlite3.IntegrityError:
+            self._mostrar_mensagem_status(f"A conta '{nome}' já existe no banco de dados.", erro=True)
+        except Exception as e:
+            self._mostrar_mensagem_status(f"Erro inesperado: {e}", erro=True)
 
     def _construir_aba_dashboard(self):
         self.frame_dash_container = ctk.CTkFrame(
@@ -489,6 +610,7 @@ class AppGUI(ctk.CTk):
 
         if aba_atual == "Transações e Extrato": self.atualizar_tabela_ext()
         elif aba_atual == "Dashboard e Gráficos": self.atualizar_dashboard()
+        elif aba_atual == "Contas": self.atualizar_lista_contas()
         elif aba_atual == "Orçamentos": self.atualizar_lista_orc()
 
         self.update_idletasks()
@@ -514,11 +636,16 @@ class AppGUI(ctk.CTk):
         cat_id = int(cat_str.split(" - ")[0])
         cat_obj = next((c for c in self.categorias if c.id == cat_id), None)
 
+        conta_str = self.combo_contas.get()
+        conta_id = int(conta_str.split(" - ")[0])
+        conta_obj = next((c for c in self.contas if c.id == conta_id), None)
+
         nova_transacao = Transacao(
             id=0,
             descricao=descricao,
             valor=valor,
             categoria=cat_obj,
+            conta=conta_obj,
             data=datetime.now()
         )
 
@@ -533,8 +660,8 @@ class AppGUI(ctk.CTk):
             self.entry_valor.delete(0, "end")
 
             self.atualizar_saldo()
-            self._trocar_aba()
             self.atualizar_tabela_ext()
+            self._trocar_aba()
             self._mostrar_mensagem_status(f"Lançamento #{id_gerado} registrado com sucesso.")
 
             #   Checa alerta de orçamento se for despesa
