@@ -159,7 +159,7 @@ class AppGUI(ctk.CTk):
 
         self.entry_descricao = ctk.CTkEntry(
             self.frame_form,
-            placeholder_text="Descrição do lançamento",
+            placeholder_text="Descrição da transação",
             height=36
         )
         self.entry_descricao.grid(row=0, column=0, columnspan=2, padx=10, pady=(12, 6), sticky="ew")
@@ -674,7 +674,7 @@ class AppGUI(ctk.CTk):
             self.atualizar_saldo()
             self.atualizar_tabela_ext()
             self._trocar_aba()
-            self._mostrar_mensagem_status(f"Lançamento #{id_gerado} registrado com sucesso.")
+            self._mostrar_mensagem_status(f"Transação #{id_gerado} registrada com sucesso.")
 
             #   Checa alerta de orçamento se for despesa
             if cat_obj.tipo == TipoTransacao.DESPESA:
@@ -788,6 +788,7 @@ class AppGUI(ctk.CTk):
             self.atualizar_saldo()
             self.atualizar_tabela_ext()
             self.atualizar_lista_orc()
+            self.atualizar_lista_contas()
             self.atualizar_dashboard()
             self._trocar_aba()
             self._mostrar_mensagem_status(f"Transação #{transacao_id} removida com sucesso!")
