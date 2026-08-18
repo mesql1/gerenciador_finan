@@ -45,6 +45,8 @@ class AppGUI(ctk.CTk):
         self.canvas_graficos = None
         self._timer_status = None
 
+        self.contas_exp = set() #   Guarda os IDs das contas "abertas"
+
         #   Componentes visuais
         self._criar_header()
 
@@ -358,6 +360,13 @@ class AppGUI(ctk.CTk):
         self.scroll_contas = ctk.CTkScrollableFrame(self.tab_contas, fg_color="transparent")
         self.scroll_contas.pack(fill="both", expand=True, padx=10, pady=10)
 
+    def alt_expansao_conta(self, conta_id: int):
+        if conta_id in self.contas_exp:
+            self.contas_exp.remove(conta_id)
+        else:
+            self.contas_exp.add(conta_id)
+        self.atualizar_lista_contas()
+
     def atualizar_lista_contas(self):
         for widget in self.scroll_contas.winfo_children():
             widget.destroy()
@@ -371,6 +380,9 @@ class AppGUI(ctk.CTk):
             return
 
         for conta in self.contas:
+            exp = conta.id in self.contas_exp
+            seta = "🢓" if exp else "🢒"
+
             saldo_conta = self.gerenciador.calc_saldo_conta(conta.id)
             cor_saldo = COLOR_INCOME if saldo_conta >= 0 else COLOR_EXPENSE
 
@@ -381,35 +393,97 @@ class AppGUI(ctk.CTk):
                 border_color=COLOR_BORDER_DARK,
                 fg_color=COLOR_CARD_DARK
             )
-            frame_card.pack(fill="x", pady=4, padx=4)
+            frame_card.pack(fill="x", pady=6, padx=4)
+
+            frame_header = ctk.CTkFrame(frame_card, fg_color="transparent")
+            frame_header.pack(side="top", fill="x", padx=16, pady=10)
+
+            frame_header.grid_columnconfigure(0, weight=1)
+            frame_header.grid_columnconfigure(1, weight=0)
+            frame_header.grid_columnconfigure(2, weight=0)
+
+            btn_toggle = ctk.CTkButton(
+                frame_header,
+                text=seta,
+                width=34,
+                height=34,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                fg_color="#3F3F46",
+                hover_color="#52525B",
+                command=lambda c_id=conta.id: self.alt_expansao_conta(c_id)
+            )
+            btn_toggle.grid(row=0, column=2, rowspan=2, sticky="e")
 
             lbl_nome = ctk.CTkLabel(
-                frame_card,
+                frame_header,
                 text=f"{conta.nome}",
-                font=ctk.CTkFont(size=14, weight="bold"),
+                font=ctk.CTkFont(size=15, weight="bold"),
                 text_color=COLOR_TEXT_MAIN
             )
-            lbl_nome.pack(side="left", padx=16, pady=14)
+            lbl_nome.grid(row=0, column=0, rowspan=2, sticky="w")
 
             lbl_saldo = ctk.CTkLabel(
-                frame_card,
+                frame_header,
                 text=f"R${saldo_conta:.2f}",
-                font=ctk.CTkFont(size=15, weight="bold"),
+                font=ctk.CTkFont(size=14, weight="bold"),
                 text_color=cor_saldo
             )
-            lbl_saldo.pack(side="right", padx=12, pady=14)
+            lbl_saldo.grid(row=0, column=1, padx=(0, 14), pady=(0, 2))
 
             btn_del_conta = ctk.CTkButton(
-                frame_card,
+                frame_header,
                 text="Remover",
-                width=65,
-                height=28,
+                width=72,
+                height=24,
                 font=ctk.CTkFont(size=11),
                 fg_color="#3F3F46",
                 hover_color="#991B1B",
                 command=lambda c_id=conta.id, c_nome=conta.nome: self.acao_remover_conta(c_id, c_nome)
             )
-            btn_del_conta.pack(side="right", padx=12, pady=14)
+            btn_del_conta.grid(row=1, column=1, padx=(0, 14))
+
+            if exp:
+                transacoes_conta = [t for t in self.gerenciador.transacoes if t.conta.id == conta.id]
+
+                frame_drawer = ctk.CTkFrame(
+                    frame_card,
+                    corner_radius=6,
+                    fg_color=COLOR_BG_DARK,
+                    border_width=1,
+                    border_color=COLOR_BORDER_DARK
+                )
+                frame_drawer.pack(side="top", fill="x", padx=16, pady=(0, 12))
+
+                if not transacoes_conta:
+                    ctk.CTkLabel(
+                        frame_drawer,
+                        text="Nenhuma transação registrada nesta conta.",
+                        font=ctk.CTkFont(size=11),
+                        text_color=COLOR_TEXT_MUTED
+                    ).pack(pady=10)
+                else:
+                    for t in transacoes_conta:
+                        row_t = ctk.CTkFrame(frame_drawer, fg_color="transparent")
+                        row_t.pack(fill="x", padx=12, pady=4)
+
+                        sinal = "+" if t.categoria.tipo == TipoTransacao.RECEITA else "-"
+                        cor_v = COLOR_INCOME if t.categoria.tipo == TipoTransacao.RECEITA else COLOR_EXPENSE
+
+                        lbl_item = ctk.CTkLabel(
+                            row_t,
+                            text=f"#{t.id} - {t.descricao} ({t.categoria.nome}) | {t.data.strftime('%d/%m/%Y')}",
+                            font=ctk.CTkFont(size=12),
+                            text_color=COLOR_TEXT_MAIN
+                        )
+                        lbl_item.pack(side="left")
+
+                        lbl_item_valor = ctk.CTkLabel(
+                            row_t,
+                            text=f"{sinal} R${t.valor:.2f}",
+                            font=ctk.CTkFont(size=12, weight="bold"),
+                            text_color=cor_v
+                        )
+                        lbl_item_valor.pack(side="right")
 
     def acao_cadastrar_conta(self):
         nome = self.entry_conta_nome.get().strip()
