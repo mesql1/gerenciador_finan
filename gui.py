@@ -13,6 +13,7 @@ ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
 COLOR_BG_DARK = "#18181B"
+COLOR_SIDEBAR = "#18181B"
 COLOR_CARD_DARK = "#27272A"
 COLOR_BORDER_DARK = "#3F3F46"
 COLOR_TEXT_MAIN = "#F4F4F5"
@@ -21,8 +22,7 @@ COLOR_TEXT_MUTED = "#A1A1AA"
 COLOR_INCOME = "#10B981"
 COLOR_EXPENSE = "#EF4444"
 COLOR_WARNING = "#F59E0B"
-
-#   TODO: Consertar problema da listagem das contas
+COLOR_PRIMARY = "#2563EB"
 
 class AppGUI(ctk.CTk):
     def __init__(self):
@@ -42,55 +42,400 @@ class AppGUI(ctk.CTk):
         self.gerenciador.transacoes = self.repositorio.carregar_transacoes()
         self.gerenciador.orcamentos = self.repositorio.carregar_orcamentos()
 
+        self.aba_ativa = "transacoes"
         self.canvas_graficos = None
         self._timer_status = None
-
         self.contas_exp = set() #   Guarda os IDs das contas "abertas"
 
-        #   Componentes visuais
-        self._criar_header()
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=1)
 
-        self.lbl_status = ctk.CTkLabel(
-            self,
-            text="",
-            font=ctk.CTkFont(size=12, weight="normal"),
-            text_color=COLOR_TEXT_MUTED
-        )
-        self.lbl_status.pack(side="bottom", pady=6)
+        self._construir_sidebar()
+        self._construir_area_conteudo()
 
-        self.tabview = ctk.CTkTabview(
-            self,
-            command=self._trocar_aba,
-            fg_color="transparent",
-            segmented_button_fg_color=COLOR_CARD_DARK,
-            segmented_button_selected_color="#3B82F6",
-            segmented_button_selected_hover_color="#2563EB"
-        )
-        self.tabview.pack(fill="both", expand=True, padx=20, pady=(0, 5))
-
-        self.tab_transacoes = self.tabview.add("Transações e Extrato")
-        self.tab_dashboard = self.tabview.add("Dashboard e Gráficos")
-        self.tab_contas = self.tabview.add("Contas")
-        self.tab_orcamentos = self.tabview.add("Orçamentos")
-        self.tab_exportar = self.tabview.add("Exportar Dados")
-
-        self._construir_aba_transacoes()
-        self._construir_aba_dashboard()
-        self._construir_aba_contas()
-        self._construir_aba_orcamentos()
-        self._construir_aba_exportar()
-        
-        #   Atualização da tela inicial com dados
+        self.navegar_para("transacoes")
         self.atualizar_saldo()
-        self.atualizar_tabela_ext()
-        self.atualizar_lista_contas()
-        self.atualizar_lista_orc()
-        self.atualizar_dashboard()
-        self._trocar_aba()
-
+        
     #   ---
     #   LAYOUT
     #   ---
+
+    #   TODO: Consertar problema da aba de exportação
+
+    def _construir_sidebar(self):
+        self.frame_sidebar = ctk.CTkFrame(
+            self,
+            width=220,
+            corner_radius=0,
+            fg_color=COLOR_SIDEBAR,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK
+        )
+        self.frame_sidebar.grid(row=0, column=0, sticky="nsew")
+
+        self.lbl_logo = ctk.CTkLabel(
+            self.frame_sidebar,
+            text="FINANÇAS",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color=COLOR_TEXT_MAIN
+        )
+        self.lbl_logo.pack(anchor="w", padx=20, pady=(24, 4))
+
+        self.lbl_logo_sub = ctk.CTkLabel(
+            self.frame_sidebar,
+            text="Painel de Controle",
+            font=ctk.CTkFont(size=11),
+            text_color=COLOR_TEXT_MUTED
+        )
+        self.lbl_logo_sub.pack(anchor="w", padx=20, pady=(0, 20))
+
+        self.botoes_nav = {}
+        itens_menu = [
+            ("transacoes", "Transações"),
+            ("dashboard", "Dashboard"),
+            ("contas", "Contas"),
+            ("orcamentos", "Orçamentos"),
+            ("exportar", "Exportação")
+        ]
+
+        for idx, (chave, rotulo) in enumerate(itens_menu, start=2):
+            btn = ctk.CTkButton(
+                self.frame_sidebar,
+                text=rotulo,
+                height=38,
+                anchor="w",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                fg_color="transparent",
+                text_color=COLOR_TEXT_MUTED,
+                hover_color=COLOR_CARD_DARK,
+                command=lambda k=chave: self.navegar_para(k)
+            )
+            btn.pack(side="top", fill="x", padx=12, pady=3)
+            self.botoes_nav[chave] = btn
+
+        self.card_saldo_sidebar = ctk.CTkFrame(
+            self.frame_sidebar,
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        self.card_saldo_sidebar.pack(side="bottom", fill="x", padx=12, pady=16)
+
+        self.lbl_saldo_titulo = ctk.CTkLabel(
+            self.card_saldo_sidebar,
+            text="SALDO TOTAL",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color=COLOR_TEXT_MUTED
+        )
+        self.lbl_saldo_titulo.pack(anchor="w", padx=12, pady=(10, 0))
+
+        self.lbl_saldo_valor = ctk.CTkLabel(
+            self.card_saldo_sidebar,
+            text="R$0,00",
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        self.lbl_saldo_valor.pack(anchor="w", padx=12, pady=(0, 10))
+
+    def _construir_area_conteudo(self):
+        self.frame_main = ctk.CTkFrame(self, fg_color="transparent")
+        self.frame_main.grid(row=0, column=1, sticky="nsew", padx=20, pady=16)
+        self.frame_main.grid_rowconfigure(0, weight=1)
+        self.frame_main.grid_columnconfigure(0, weight=1)
+
+        self.telas = {}
+
+        self.telas["transacoes"] = self._criar_tela_transacoes()
+        self.telas["dashboard"] = self._criar_tela_dashboard()
+        self.telas["contas"] = self._criar_tela_contas()
+        self.telas["orcamentos"] = self._criar_tela_orc()
+        self.telas["exportar"] = self._criar_tela_exportar()
+
+        self.lbl_status = ctk.CTkLabel(
+            self.frame_main,
+            text="",
+            font=ctk.CTkFont(size=12),
+            text_color=COLOR_TEXT_MUTED
+        )
+        self.lbl_status.grid(row=1, column=0, pady=(6, 0), sticky="ew")
+
+    def navegar_para(self, nome_tela: str):
+        self.aba_ativa = nome_tela
+
+        for chave, btn in self.botoes_nav.items():
+            if chave == nome_tela:
+                btn.configure(fg_color=COLOR_PRIMARY, text_color=COLOR_TEXT_MAIN)
+            else:
+                btn.configure(fg_color="transparent", text_color=COLOR_TEXT_MUTED)
+
+        for chave, tela in self.telas.items():
+            if chave == nome_tela:
+                tela.grid(row=0, column=0, sticky="nsew")
+            else:
+                tela.grid_forget()
+
+        if nome_tela == "transacoes":
+            self.atualizar_tabela_ext()
+        elif nome_tela == "dashboard":
+            self.atualizar_dashboard()
+        elif nome_tela == "contas":
+            self.atualizar_lista_contas()
+        elif nome_tela == "orcamentos":
+            self.atualizar_lista_orc()
+
+    def _criar_tela_transacoes(self):
+        tela = ctk.CTkFrame(self.frame_main, fg_color="transparent")
+        tela.grid_rowconfigure(1, weight=1)
+        tela.grid_columnconfigure(0, weight=1)
+
+        self.frame_form = ctk.CTkFrame(
+            tela,
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        self.frame_form.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        self.frame_form.grid_columnconfigure((0, 1), weight=2)
+        self.frame_form.grid_columnconfigure(2, weight=1)
+
+        self.entry_descricao = ctk.CTkEntry(self.frame_form, placeholder_text="Descrição da transação", height=36)
+        self.entry_descricao.grid(row=0, column=0, columnspan=2, padx=10, pady=(12, 6), sticky="ew")
+
+        self.entry_valor = ctk.CTkEntry(self.frame_form, placeholder_text="Valor (R$)", height=36)
+        self.entry_valor.grid(row=0, column=2, padx=10, pady=(12, 6), sticky="ew")
+
+        nomes_cat = [f"{c.id} - {c.nome} ({c.tipo.value})" for c in self.categorias]
+        self.combo_categoria = ctk.CTkOptionMenu(self.frame_form, values=nomes_cat, height=36)
+        self.combo_categoria.grid(row=1, column=0, padx=10, pady=(6, 12), sticky="ew")
+
+        nomes_contas = [f"{c.id} - {c.nome}" for c in self.contas]
+        self.combo_contas = ctk.CTkOptionMenu(self.frame_form, values=nomes_contas, height=36)
+        self.combo_contas.grid(row=1, column=1, padx=10, pady=(6, 12), sticky="ew")
+
+        self.btn_salvar = ctk.CTkButton(
+            self.frame_form,
+            text="Cadastrar",
+            font=ctk.CTkFont(weight="bold"),
+            height=36,
+            fg_color=COLOR_PRIMARY,
+            hover_color="#1D4ED8",
+            command=self.acao_cadastrar
+        )
+        self.btn_salvar.grid(row=1, column=2, padx=10, pady=(6, 12), sticky="ew")
+
+        self.frame_ext = ctk.CTkFrame(
+            tela,
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        self.frame_ext.grid(row=1, column=0, sticky="nsew")
+
+        lbl_extrato_titulo = ctk.CTkLabel(
+            self.frame_ext,
+            text="HISTÓRICO DE TRANSAÇÕES",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=COLOR_TEXT_MUTED
+        )
+        lbl_extrato_titulo.pack(anchor="w", padx=16, pady=(12, 6))
+
+        self.scroll_transacoes = ctk.CTkScrollableFrame(self.frame_ext, fg_color="transparent")
+        self.scroll_transacoes.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        return tela
+
+    def atualizar_tabela_extrato(self):
+        for widget in self.scroll_transacoes.winfo_children():
+            widget.destroy()
+
+        if not self.gerenciador.transacoes:
+            ctk.CTkLabel(self.scroll_transacoes, text="Nenhuma transação registrada.", text_color=COLOR_TEXT_MUTED).pack(pady=20)
+            return
+
+        for t in self.gerenciador.transacoes:
+            frame_bloco = ctk.CTkFrame(
+                self.scroll_transacoes,
+                corner_radius=6,
+                border_width=1,
+                border_color=COLOR_BORDER_DARK,
+                fg_color=COLOR_BG_DARK
+            )
+            frame_bloco.pack(fill="x", pady=4, padx=4)
+
+            sinal = "+" if t.categoria.tipo == TipoTransacao.RECEITA else "-"
+            cor_valor = COLOR_INCOME if t.categoria.tipo == TipoTransacao.RECEITA else COLOR_EXPENSE
+
+            frame_info = ctk.CTkLabel(frame_bloco, fg_color="transparent")
+            frame_info.pack(side="left", padx=12, pady=10)
+
+            lbl_descricao = ctk.CTkLabel(frame_info, text=f"#{t.id} - {t.descricao}", font=ctk.CTkFont(size=13, weight="bold"), text_color=COLOR_TEXT_MAIN, anchor="w")
+            lbl_descricao.pack(anchor="w")
+
+            detalhes_texto = f"Conta: {t.conta.nome} - {t.categoria.nome} - {t.data.strftime('%d/%m/%Y')}"
+            lbl_detalhes = ctk.CTkLabel(frame_info, text=detalhes_texto, font=ctk.CTkFont(size=11), text_color=COLOR_TEXT_MUTED, anchor="w")
+            lbl_detalhes.pack(anchor="w", pady=(2, 0))
+
+            btn_remover = ctk.CTkButton(
+                frame_bloco,
+                text="Remover",
+                width=65,
+                height=28,
+                font=ctk.CTkFont(size=11),
+                fg_color="#3F3F46",
+                hover_color="#991B1B",
+                command=lambda id_del=t.id: self.acao_remover_transacao(id_del)
+            )
+            btn_remover.pack(side="right", padx=12, pady=10)
+
+            lbl_valor = ctk.CTkLabel(frame_bloco, text=f"{sinal} R${t.valor:.2f}", text_color=cor_valor, font=ctk.CTkFont(size=14, weight="bold"))
+            lbl_valor.pack(side="right", padx=12, pady=10)
+
+    def _criar_tela_dashboard(self):
+        tela = ctk.CTkFrame(self.frame_main, fg_color="transparent")
+        tela.grid_rowconfigure(0, weight=1)
+        tela.grid_columnconfigure(0, weight=1)
+
+        self.frame_dash_container = ctk.CTkFrame(
+            tela,
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        self.frame_dash_container.grid(row=0, column=0, sticky="nsew")
+
+        return tela
+
+    def _criar_tela_contas(self):
+        tela = ctk.CTkFrame(self.frame_main, fg_color="transparent")
+        tela.grid_rowconfigure(1, weight=1)
+        tela.grid_columnconfigure(0, weight=1)
+
+        self.frame_conta_form = ctk.CTkFrame(
+            tela,
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        self.frame_conta_form.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+
+        self.entry_conta_nome = ctk.CTkEntry(self.frame_conta_form, placeholder_text="Nome da Nova Conta (ex: Nubank, Inter)", height=36)
+        self.entry_conta_nome.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
+
+        self.btn_salvar_conta = ctk.CTkButton(
+            self.frame_conta_form,
+            text="Criar Conta",
+            font=ctk.CTkFont(weight="bold"),
+            height=36,
+            fg_color=COLOR_PRIMARY,
+            hover_color="#1D4ED8",
+            command=self.acao_cadastrar_conta
+        )
+        self.btn_salvar_conta.grid(row=0, column=1, padx=12, pady=12)
+        self.frame_conta_form.grid_columnconfigure(0, weight=1)
+
+        self.scroll_contas = ctk.CTkScrollableFrame(tela, fg_color="transparent")
+        self.scroll_contas.grid(row=1, column=0, sticky="nsew")
+
+        return tela
+
+    def _criar_tela_orc(self):
+        tela = ctk.CTkFrame(self.frame_main, fg_color="transparent")
+        tela.grid_rowconfigure(1, weight=1)
+        tela.grid_columnconfigure(0, weight=1)
+
+        self.frame_orc_form = ctk.CTkFrame(
+            tela,
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        self.frame_orc_form.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+
+        despesas_cat = [c for c in self.categorias if c.tipo == TipoTransacao.DESPESA]
+        nomes_despesas = [f"{c.id} - {c.nome}" for c in despesas_cat]
+
+        self.combo_orc_cat = ctk.CTkOptionMenu(self.frame_orc_form, values=nomes_despesas, height=36)
+        self.combo_orc_cat.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+
+        self.entry_orc_limite = ctk.CTkEntry(self.frame_orc_form, placeholder_text="Limite (R$)", height=36)
+        self.entry_orc_limite.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+
+        self.entry_orc_mes = ctk.CTkEntry(self.frame_orc_form, placeholder_text="Mês (1-12)", height=36)
+        self.entry_orc_mes.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
+
+        self.entry_orc_ano = ctk.CTkEntry(self.frame_orc_form, placeholder_text="Ano (ex: 2026)", height=36)
+        self.entry_orc_ano.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
+
+        self.btn_definir_orc = ctk.CTkButton(
+            self.frame_orc_form,
+            text="Definir Limite",
+            height=36,
+            fg_color=COLOR_PRIMARY,
+            hover_color="#1D4ED8",
+            command=self.acao_definir_orcamento
+        )
+        self.btn_definir_orc.grid(row=0, column=4, padx=10, pady=10)
+        self.frame_orc_form.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+        self.scroll_orcamentos = ctk.CTkScrollableFrame(tela, fg_color="transparent")
+        self.scroll_orcamentos.grid(row=1, column=0, sticky="nsew")
+
+        return tela
+
+    def _criar_tela_exportar(self):
+        tela = ctk.CTkFrame(self.frame_main, fg_color="transparent")
+        tela.grid_rowconfigure(0, weight=1)
+        tela.grid_columnconfigure(0, weight=1)
+
+        frame_exp = ctk.CTkFrame(
+            tela, 
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER_DARK,
+            fg_color=COLOR_CARD_DARK
+        )
+        frame_exp.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+        lbl_exp = ctk.CTkLabel(frame_exp, text="EXPORTAÇÃO DE DADOS", font=ctk.CTkFont(size=15, weight="bold"), text_color=COLOR_TEXT_MAIN)
+        lbl_exp.pack(pady=(40, 12))
+
+        frame_info_box = ctk.CTkFrame(frame_exp, fg_color=COLOR_BG_DARK, corner_radius=6)
+        frame_info_box.pack(padx=30, pady=10, fill="x")
+
+        lbl_exp_desc = ctk.CTkLabel(
+            frame_info_box, 
+            text="Gera o arquivo 'extrato.csv' unificado com todas as contas cadastradas, pronto para abertura no Excel ou Google Planilhas.",
+            wraplength=450,
+            font=ctk.CTkFont(size=12),
+            text_color=COLOR_TEXT_MUTED
+        )
+        lbl_exp_desc.pack(padx=16, pady=16)
+
+        btn_exportar = ctk.CTkButton(
+            frame_exp, 
+            text="Gerar Relatório CSV", 
+            font=ctk.CTkFont(weight="bold"),
+            height=40,
+            fg_color=COLOR_PRIMARY,
+            hover_color="#1D4ED8",
+            command=self.acao_exportar_csv
+        )
+        btn_exportar.pack(pady=(16, 40))
+
+        return tela
+
+    def alternar_expansao_conta(self, conta_id: int):
+        if conta_id in self.contas_exp:
+            self.contas_exp.remove(conta_id)
+        else:
+            self.contas_exp.add(conta_id)
+        self.atualizar_lista_contas()
 
     def _criar_header(self):
         #   Cabeçalho com título e cartão do saldo atual
@@ -690,17 +1035,6 @@ class AppGUI(ctk.CTk):
             )
             lbl_val.pack(side="right", padx=12, pady=10)
 
-    def _trocar_aba(self):
-        #   Executado automaticamente sempre que o usuário clica em qualquer aba
-        aba_atual = self.tabview.get()
-
-        if aba_atual == "Transações e Extrato": self.atualizar_tabela_ext()
-        elif aba_atual == "Dashboard e Gráficos": self.atualizar_dashboard()
-        elif aba_atual == "Contas": self.atualizar_lista_contas()
-        elif aba_atual == "Orçamentos": self.atualizar_lista_orc()
-
-        self.update_idletasks()
-
     def acao_cadastrar(self):
         descricao = self.entry_descricao.get().strip()
         valor_raw = self.entry_valor.get().strip().replace(",", ".")
@@ -747,7 +1081,6 @@ class AppGUI(ctk.CTk):
 
             self.atualizar_saldo()
             self.atualizar_tabela_ext()
-            self._trocar_aba()
             self._mostrar_mensagem_status(f"Transação #{id_gerado} registrada com sucesso.")
 
             #   Checa alerta de orçamento se for despesa
@@ -864,7 +1197,6 @@ class AppGUI(ctk.CTk):
             self.atualizar_lista_orc()
             self.atualizar_lista_contas()
             self.atualizar_dashboard()
-            self._trocar_aba()
             self._mostrar_mensagem_status(f"Transação #{transacao_id} removida com sucesso!")
 
     def acao_remover_conta(self, conta_id: int, conta_nome: str):
