@@ -4,25 +4,47 @@ import customtkinter as ctk
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.ticker import FuncFormatter
 
 from modelos import Transacao, TipoTransacao, Categoria, Orcamento, Conta
 from servicos import GerenciadorFin
 from repositorio import RepoSQLite
 
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-COLOR_BG_DARK = "#18181B"
-COLOR_SIDEBAR = "#18181B"
-COLOR_CARD_DARK = "#27272A"
-COLOR_BORDER_DARK = "#3F3F46"
-COLOR_TEXT_MAIN = "#F4F4F5"
-COLOR_TEXT_MUTED = "#A1A1AA"
+# Linguagem visual reta: remove o arredondamento padrão inclusive dos
+# componentes internos, como barras de rolagem e menus suspensos.
+def _remover_cantos_arredondados(configuracao):
+    for chave, valor in configuracao.items():
+        if isinstance(valor, dict):
+            _remover_cantos_arredondados(valor)
+        elif "corner_radius" in chave:
+            configuracao[chave] = 0
 
-COLOR_INCOME = "#10B981"
-COLOR_EXPENSE = "#EF4444"
-COLOR_WARNING = "#F59E0B"
-COLOR_PRIMARY = "#2563EB"
+
+_remover_cantos_arredondados(ctk.ThemeManager.theme)
+
+COLOR_BG_DARK = "#09090B"
+COLOR_SIDEBAR = "#070708"
+COLOR_CARD_DARK = "#121214"
+COLOR_CARD_ALT = "#18181B"
+COLOR_BORDER_DARK = "#27272A"
+COLOR_TEXT_MAIN = "#FAFAFA"
+COLOR_TEXT_MUTED = "#8B8B95"
+
+COLOR_INCOME = "#38D996"
+COLOR_EXPENSE = "#FF646D"
+COLOR_WARNING = "#F6B94A"
+COLOR_PRIMARY = "#7C5CFC"
+COLOR_PRIMARY_HOVER = "#6D4EE8"
+FONT_FAMILY = "Inter UI"
+
+# Define a mesma família para widgets com fonte explícita, componentes que
+# usam a fonte padrão do CustomTkinter e textos gerados pelo Matplotlib.
+ctk.ThemeManager.theme["CTkFont"]["family"] = FONT_FAMILY
+plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = ["Inter UI", "Inter", "Segoe UI"]
 
 class AppGUI(ctk.CTk):
     def __init__(self):
@@ -30,8 +52,10 @@ class AppGUI(ctk.CTk):
 
         #   Configurações da janela
         self.title("Gerenciador de Finanças Pessoais")
-        self.geometry("1050x760")
+        self.geometry("1240x790")
+        self.minsize(1050, 700)
         self.resizable(True, True)
+        self.configure(fg_color=COLOR_BG_DARK)
 
         #   Camada de Dados e Serviços
         self.repositorio = RepoSQLite("financas_1.0.db")
@@ -42,19 +66,19 @@ class AppGUI(ctk.CTk):
         self.gerenciador.transacoes = self.repositorio.carregar_transacoes()
         self.gerenciador.orcamentos = self.repositorio.carregar_orcamentos()
 
-        self.aba_ativa = "transacoes"
+        self.aba_ativa = "dashboard"
         self.canvas_graficos = None
         self._timer_status = None
         self.contas_exp = set() #   Guarda os IDs das contas "abertas"
 
         self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(0, weight=0, minsize=210)
         self.grid_columnconfigure(1, weight=1)
 
         self._construir_sidebar()
         self._construir_area_conteudo()
 
-        self.navegar_para("transacoes")
+        self.navegar_para("dashboard")
         self.atualizar_saldo()
         
     #   ---
@@ -66,67 +90,75 @@ class AppGUI(ctk.CTk):
     def _construir_sidebar(self):
         self.frame_sidebar = ctk.CTkFrame(
             self,
-            width=220,
+            width=210,
             corner_radius=0,
             fg_color=COLOR_SIDEBAR,
-            border_width=1,
-            border_color=COLOR_BORDER_DARK
+            border_width=0
         )
         self.frame_sidebar.grid(row=0, column=0, sticky="nsew")
 
         self.lbl_logo = ctk.CTkLabel(
             self.frame_sidebar,
-            text="FINANÇAS",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            text_color=COLOR_TEXT_MAIN
+            text="◈  NEXA",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=19, weight="bold"),
+            text_color=COLOR_TEXT_MAIN,
+            anchor="w"
         )
-        self.lbl_logo.pack(anchor="w", padx=20, pady=(24, 4))
+        self.lbl_logo.pack(fill="x", padx=20, pady=(24, 2))
 
         self.lbl_logo_sub = ctk.CTkLabel(
             self.frame_sidebar,
-            text="Painel de Controle",
-            font=ctk.CTkFont(size=11),
+            text="PERSONAL FINANCE",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
             text_color=COLOR_TEXT_MUTED
         )
-        self.lbl_logo_sub.pack(anchor="w", padx=20, pady=(0, 20))
+        self.lbl_logo_sub.pack(anchor="w", padx=43, pady=(0, 25))
+
+        ctk.CTkLabel(
+            self.frame_sidebar,
+            text="MENU",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
+            text_color="#5D5D66"
+        ).pack(anchor="w", padx=20, pady=(0, 8))
 
         self.botoes_nav = {}
         itens_menu = [
-            ("transacoes", "Transações"),
-            ("dashboard", "Dashboard"),
-            ("contas", "Contas"),
-            ("orcamentos", "Orçamentos"),
-            ("exportar", "Exportação")
+            ("dashboard", "▦   Visão geral"),
+            ("transacoes", "⇄   Transações"),
+            ("contas", "▣   Contas"),
+            ("orcamentos", "◫   Orçamentos"),
+            ("exportar", "⇧   Exportar")
         ]
 
         for idx, (chave, rotulo) in enumerate(itens_menu, start=2):
             btn = ctk.CTkButton(
                 self.frame_sidebar,
                 text=rotulo,
-                height=38,
+                height=40,
                 anchor="w",
-                font=ctk.CTkFont(size=13, weight="bold"),
+                font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
                 fg_color="transparent",
                 text_color=COLOR_TEXT_MUTED,
-                hover_color=COLOR_CARD_DARK,
+                hover_color=COLOR_CARD_ALT,
+                corner_radius=0,
                 command=lambda k=chave: self.navegar_para(k)
             )
-            btn.pack(side="top", fill="x", padx=12, pady=3)
+            btn.pack(side="top", fill="x", padx=11, pady=2)
             self.botoes_nav[chave] = btn
 
         self.card_saldo_sidebar = ctk.CTkFrame(
             self.frame_sidebar,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
         )
-        self.card_saldo_sidebar.pack(side="bottom", fill="x", padx=12, pady=16)
+        self.card_saldo_sidebar.pack(side="bottom", fill="x", padx=12, pady=14)
 
         self.lbl_saldo_titulo = ctk.CTkLabel(
             self.card_saldo_sidebar,
-            text="SALDO TOTAL",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            text="SALDO DISPONÍVEL",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
             text_color=COLOR_TEXT_MUTED
         )
         self.lbl_saldo_titulo.pack(anchor="w", padx=12, pady=(10, 0))
@@ -134,15 +166,47 @@ class AppGUI(ctk.CTk):
         self.lbl_saldo_valor = ctk.CTkLabel(
             self.card_saldo_sidebar,
             text="R$0,00",
-            font=ctk.CTkFont(size=16, weight="bold")
+            font=ctk.CTkFont(family=FONT_FAMILY, size=18, weight="bold")
         )
         self.lbl_saldo_valor.pack(anchor="w", padx=12, pady=(0, 10))
 
     def _construir_area_conteudo(self):
         self.frame_main = ctk.CTkFrame(self, fg_color="transparent")
-        self.frame_main.grid(row=0, column=1, sticky="nsew", padx=20, pady=16)
-        self.frame_main.grid_rowconfigure(0, weight=1)
+        self.frame_main.grid(row=0, column=1, sticky="nsew", padx=22, pady=(16, 10))
+        self.frame_main.grid_rowconfigure(1, weight=1)
         self.frame_main.grid_columnconfigure(0, weight=1)
+
+        self.frame_topbar = ctk.CTkFrame(self.frame_main, fg_color="transparent", height=52)
+        self.frame_topbar.grid(row=0, column=0, sticky="ew", pady=(0, 14))
+        self.frame_topbar.grid_columnconfigure(0, weight=1)
+
+        title_box = ctk.CTkFrame(self.frame_topbar, fg_color="transparent")
+        title_box.grid(row=0, column=0, sticky="w")
+        self.lbl_page_title = ctk.CTkLabel(
+            title_box, text="Visão geral", anchor="w",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=21, weight="bold"),
+            text_color=COLOR_TEXT_MAIN
+        )
+        self.lbl_page_title.pack(anchor="w")
+        self.lbl_page_subtitle = ctk.CTkLabel(
+            title_box, text="Seu dinheiro, com clareza.", anchor="w",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=COLOR_TEXT_MUTED
+        )
+        self.lbl_page_subtitle.pack(anchor="w", pady=(1, 0))
+
+        self.entry_busca = ctk.CTkEntry(
+            self.frame_topbar, width=220, height=34, corner_radius=0,
+            fg_color=COLOR_CARD_DARK, border_color=COLOR_BORDER_DARK,
+            placeholder_text="⌕  Buscar transação..."
+        )
+        self.entry_busca.grid(row=0, column=1, padx=(12, 8))
+        self.entry_busca.bind("<KeyRelease>", lambda _event: self.atualizar_tabela_ext())
+        ctk.CTkButton(
+            self.frame_topbar, text="+  Nova transação", width=140, height=34,
+            corner_radius=0, fg_color=COLOR_PRIMARY, hover_color=COLOR_PRIMARY_HOVER,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            command=lambda: self.navegar_para("transacoes")
+        ).grid(row=0, column=2)
 
         self.telas = {}
 
@@ -158,20 +222,32 @@ class AppGUI(ctk.CTk):
             font=ctk.CTkFont(size=12),
             text_color=COLOR_TEXT_MUTED
         )
-        self.lbl_status.grid(row=1, column=0, pady=(6, 0), sticky="ew")
+        self.lbl_status.grid(row=2, column=0, pady=(6, 0), sticky="ew")
 
     def navegar_para(self, nome_tela: str):
         self.aba_ativa = nome_tela
 
+        titulos = {
+            "dashboard": ("Visão geral", "Acompanhe a saúde das suas finanças."),
+            "transacoes": ("Transações", "Registre e acompanhe suas movimentações."),
+            "contas": ("Contas", "Organize seus saldos por carteira."),
+            "orcamentos": ("Orçamentos", "Defina limites e controle seus gastos."),
+            "exportar": ("Exportar dados", "Leve seu histórico para onde precisar.")
+        }
+        titulo, subtitulo = titulos[nome_tela]
+        self.lbl_page_title.configure(text=titulo)
+        self.lbl_page_subtitle.configure(text=subtitulo)
+        self.entry_busca.grid() if nome_tela == "transacoes" else self.entry_busca.grid_remove()
+
         for chave, btn in self.botoes_nav.items():
             if chave == nome_tela:
-                btn.configure(fg_color=COLOR_PRIMARY, text_color=COLOR_TEXT_MAIN)
+                btn.configure(fg_color="#232027", text_color=COLOR_TEXT_MAIN)
             else:
                 btn.configure(fg_color="transparent", text_color=COLOR_TEXT_MUTED)
 
         for chave, tela in self.telas.items():
             if chave == nome_tela:
-                tela.grid(row=0, column=0, sticky="nsew")
+                tela.grid(row=1, column=0, sticky="nsew")
             else:
                 tela.grid_forget()
 
@@ -191,7 +267,7 @@ class AppGUI(ctk.CTk):
 
         self.frame_form = ctk.CTkFrame(
             tela,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -227,7 +303,7 @@ class AppGUI(ctk.CTk):
 
         self.frame_ext = ctk.CTkFrame(
             tela,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -258,7 +334,7 @@ class AppGUI(ctk.CTk):
         for t in self.gerenciador.transacoes:
             frame_bloco = ctk.CTkFrame(
                 self.scroll_transacoes,
-                corner_radius=6,
+                corner_radius=0,
                 border_width=1,
                 border_color=COLOR_BORDER_DARK,
                 fg_color=COLOR_BG_DARK
@@ -300,10 +376,8 @@ class AppGUI(ctk.CTk):
 
         self.frame_dash_container = ctk.CTkFrame(
             tela,
-            corner_radius=6,
-            border_width=1,
-            border_color=COLOR_BORDER_DARK,
-            fg_color=COLOR_CARD_DARK
+            corner_radius=0,
+            fg_color="transparent"
         )
         self.frame_dash_container.grid(row=0, column=0, sticky="nsew")
 
@@ -316,7 +390,7 @@ class AppGUI(ctk.CTk):
 
         self.frame_conta_form = ctk.CTkFrame(
             tela,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -350,7 +424,7 @@ class AppGUI(ctk.CTk):
 
         self.frame_orc_form = ctk.CTkFrame(
             tela,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -395,17 +469,17 @@ class AppGUI(ctk.CTk):
 
         frame_exp = ctk.CTkFrame(
             tela, 
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
         )
-        frame_exp.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        frame_exp.grid(row=0, column=0, sticky="nsew")
 
         lbl_exp = ctk.CTkLabel(frame_exp, text="EXPORTAÇÃO DE DADOS", font=ctk.CTkFont(size=15, weight="bold"), text_color=COLOR_TEXT_MAIN)
         lbl_exp.pack(pady=(40, 12))
 
-        frame_info_box = ctk.CTkFrame(frame_exp, fg_color=COLOR_BG_DARK, corner_radius=6)
+        frame_info_box = ctk.CTkFrame(frame_exp, fg_color=COLOR_BG_DARK, corner_radius=0)
         frame_info_box.pack(padx=30, pady=10, fill="x")
 
         lbl_exp_desc = ctk.CTkLabel(
@@ -464,7 +538,7 @@ class AppGUI(ctk.CTk):
         #   Cartão de Saldo
         self.card_saldo = ctk.CTkFrame(
             self.frame_header,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -494,7 +568,7 @@ class AppGUI(ctk.CTk):
         #   Form de cadastro
         self.frame_form = ctk.CTkFrame(
             self.tab_transacoes,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -545,7 +619,7 @@ class AppGUI(ctk.CTk):
         #   Extrato com Scroll
         self.frame_ext = ctk.CTkFrame(
             self.tab_transacoes,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -571,7 +645,7 @@ class AppGUI(ctk.CTk):
         #   Form pra definir limite
         self.frame_orc_form = ctk.CTkFrame(
             self.tab_orcamentos,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -615,7 +689,7 @@ class AppGUI(ctk.CTk):
     def _construir_aba_exportar(self):
         self.frame_exp = ctk.CTkFrame(
             self.tab_exportar,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -630,7 +704,7 @@ class AppGUI(ctk.CTk):
         )
         self.lbl_exp.pack(pady=(30, 10))
 
-        frame_info_box = ctk.CTkFrame(self.frame_exp, fg_color=COLOR_BG_DARK, corner_radius=6)
+        frame_info_box = ctk.CTkFrame(self.frame_exp, fg_color=COLOR_BG_DARK, corner_radius=0)
         frame_info_box.pack(padx=30, pady=10, fill="x")
 
         self.lbl_exp_desc = ctk.CTkLabel(
@@ -655,7 +729,7 @@ class AppGUI(ctk.CTk):
 
     def _criar_lista_ext(self):
         #   Área com a tabela de lançamentos cadastrados
-        self.frame_ext = ctk.CTkFrame(self, corner_radius=10)
+        self.frame_ext = ctk.CTkFrame(self, corner_radius=0)
         self.frame_ext.pack(fill="both", expand=True, padx=20, pady=(10, 20))
 
         self.lbl_ext_titulo = ctk.CTkLabel(
@@ -676,7 +750,7 @@ class AppGUI(ctk.CTk):
     def _construir_aba_contas(self):
         self.frame_conta_form = ctk.CTkFrame(
             self.tab_contas,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -733,7 +807,7 @@ class AppGUI(ctk.CTk):
 
             frame_card = ctk.CTkFrame(
                 self.scroll_contas,
-                corner_radius=6,
+                corner_radius=0,
                 border_width=1,
                 border_color=COLOR_BORDER_DARK,
                 fg_color=COLOR_CARD_DARK
@@ -792,7 +866,7 @@ class AppGUI(ctk.CTk):
 
                 frame_drawer = ctk.CTkFrame(
                     frame_card,
-                    corner_radius=6,
+                    corner_radius=0,
                     fg_color=COLOR_BG_DARK,
                     border_width=1,
                     border_color=COLOR_BORDER_DARK
@@ -866,7 +940,7 @@ class AppGUI(ctk.CTk):
     def _construir_aba_dashboard(self):
         self.frame_dash_container = ctk.CTkFrame(
             self.tab_dashboard,
-            corner_radius=6,
+            corner_radius=0,
             border_width=1,
             border_color=COLOR_BORDER_DARK,
             fg_color=COLOR_CARD_DARK
@@ -885,80 +959,210 @@ class AppGUI(ctk.CTk):
         for widget in self.frame_dash_container.winfo_children():
             widget.destroy()
 
-        if not self.gerenciador.transacoes:
-            ctk.CTkLabel(
-                self.frame_dash_container,
-                text="Sem dados para geração de dashboard.",
-                text_color=COLOR_TEXT_MUTED
-            ).pack(expand=True)
-            return
+        container = self.frame_dash_container
+        for column in range(4):
+            container.grid_columnconfigure(column, weight=1, uniform="metricas")
+        container.grid_rowconfigure(1, weight=1)
+        container.grid_rowconfigure(2, weight=1)
 
-        cor_fundo = COLOR_CARD_DARK
-        cor_texto = COLOR_TEXT_MAIN
+        transacoes = self.gerenciador.transacoes
+        receitas = sum(t.valor for t in transacoes if t.categoria.tipo == TipoTransacao.RECEITA)
+        despesas = sum(t.valor for t in transacoes if t.categoria.tipo == TipoTransacao.DESPESA)
+        saldo = receitas - despesas
+        economia = (saldo / receitas * 100) if receitas else 0
 
-        #   Figura: Lado a Lado
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), facecolor=cor_fundo)
-        fig.subplots_adjust(wspace=0.35)
-
-        #   Figura: Rosca (Despesa por Categoria)
-        gastos_por_cat = {}
-        for t in self.gerenciador.transacoes:
-            if t.categoria.tipo == TipoTransacao.DESPESA:
-                gastos_por_cat[t.categoria.nome] = gastos_por_cat.get(t.categoria.nome, 0.0) + t.valor
-
-        #   Formata o texto exibido no gráfico de rosca
-        def formatar_rotulo(pct, allvals):
-            absolute = sum(allvals) * (pct / 100.0)
-
-            return f"{pct:.1f}%\n(R${absolute:.0f})" if pct >= 4 else ""
-
-        if gastos_por_cat:
-            labels = list(gastos_por_cat.keys())
-            valores = list(gastos_por_cat.values())
-            cores = ["#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#64748B"]
-
-            ax1.set_facecolor(cor_fundo)
-            wedges, texts, autotexts = ax1.pie(
-                valores,
-                labels=labels,
-                autopct=lambda pct: formatar_rotulo(pct, valores),
-                pctdistance=0.75,
-                startangle=140,
-                colors=cores,
-                textprops=dict(color=cor_texto, fontsize=8),
-                wedgeprops=dict(width=0.38, edgecolor=cor_fundo)
+        metricas = [
+            ("SALDO TOTAL", self._formatar_moeda(saldo), "◈", COLOR_PRIMARY),
+            ("RECEITAS", self._formatar_moeda(receitas), "↗", COLOR_INCOME),
+            ("DESPESAS", self._formatar_moeda(despesas), "↘", COLOR_EXPENSE),
+            ("TAXA DE ECONOMIA", f"{economia:.1f}%", "◎", COLOR_WARNING),
+        ]
+        for coluna, (titulo, valor, icone, cor) in enumerate(metricas):
+            card = ctk.CTkFrame(
+                container, height=92, corner_radius=0, fg_color=COLOR_CARD_DARK,
+                border_width=1, border_color=COLOR_BORDER_DARK
             )
-            #   Ajusta a cor dos números das porcentagens
-            for autotext in autotexts:
-                autotext.set_color("white")
-                autotext.set_weight("bold")
+            card.grid(row=0, column=coluna, sticky="nsew", padx=(0 if coluna == 0 else 5, 0 if coluna == 3 else 5), pady=(0, 10))
+            card.grid_propagate(False)
+            ctk.CTkLabel(
+                card, text=icone, width=28, height=28, corner_radius=0,
+                fg_color=COLOR_CARD_ALT, text_color=cor,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold")
+            ).place(x=14, y=14)
+            ctk.CTkLabel(
+                card, text=titulo, text_color=COLOR_TEXT_MUTED,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold")
+            ).place(x=52, y=14)
+            ctk.CTkLabel(
+                card, text=valor, text_color=COLOR_TEXT_MAIN,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=19, weight="bold")
+            ).place(x=14, y=49)
 
-            ax1.set_title("Despesas por Categoria", color=cor_texto, fontsize=12, fontweight="bold")
+        chart_card = ctk.CTkFrame(
+            container, corner_radius=0, fg_color=COLOR_CARD_DARK,
+            border_width=1, border_color=COLOR_BORDER_DARK
+        )
+        chart_card.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=(0, 5), pady=(0, 10))
+        ctk.CTkLabel(
+            chart_card, text="RECEITAS E DESPESAS", anchor="w", text_color=COLOR_TEXT_MAIN,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold")
+        ).pack(fill="x", padx=16, pady=(12, 0))
+        ctk.CTkLabel(
+            chart_card, text="Comparativo mensal dos valores movimentados", anchor="w",
+            text_color=COLOR_TEXT_MUTED, font=ctk.CTkFont(family=FONT_FAMILY, size=9)
+        ).pack(fill="x", padx=16, pady=(1, 0))
 
-        else:
-            ax1.set_facecolor(cor_fundo)
-            ax1.text(0.5, 0.5, "Sem despesas", ha="center", va="center", color=COLOR_TEXT_MUTED)
+        movimentos_por_mes = {}
+        for transacao in transacoes:
+            periodo = (transacao.data.year, transacao.data.month)
+            if periodo not in movimentos_por_mes:
+                movimentos_por_mes[periodo] = {"receitas": 0.0, "despesas": 0.0}
+            campo = "receitas" if transacao.categoria.tipo == TipoTransacao.RECEITA else "despesas"
+            movimentos_por_mes[periodo][campo] += transacao.valor
 
-        total_receita = sum(t.valor for t in self.gerenciador.transacoes if t.categoria.tipo == TipoTransacao.RECEITA)
-        total_despesa = sum(t.valor for t in self.gerenciador.transacoes if t.categoria.tipo == TipoTransacao.DESPESA)
+        periodos = sorted(movimentos_por_mes)[-6:]
+        if not periodos:
+            agora = datetime.now()
+            periodos = [(agora.year, agora.month)]
+            movimentos_por_mes[periodos[0]] = {"receitas": 0.0, "despesas": 0.0}
 
-        ax2.set_facecolor(cor_fundo)
-        barras = ax2.bar(["Receitas", "Despesas"], [total_receita, total_despesa], color=[COLOR_INCOME, COLOR_EXPENSE], width=0.45)
-        ax2.set_title("Receitas vs Despesas (R$)", color=cor_texto, fontsize=11, fontweight="bold")
-        ax2.tick_params(colors=cor_texto)
+        nomes_meses = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez")
+        rotulos = [f"{nomes_meses[mes - 1]}/{str(ano)[-2:]}" for ano, mes in periodos]
+        valores_receitas = [movimentos_por_mes[periodo]["receitas"] for periodo in periodos]
+        valores_despesas = [movimentos_por_mes[periodo]["despesas"] for periodo in periodos]
 
-        #   Adiciona valores no topo das barras
-        for bar in barras:
-            yval = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width()/2.0, yval + (yval * 0.02 if yval > 0 else 0), f"R${yval:.2f}", ha="center", va="bottom", color=cor_texto, fontsize=8)
-
-        #   Renderização da figura no Canvas do Tkinter
-        self.canvas_graficos = FigureCanvasTkAgg(fig, master=self.frame_dash_container)
+        fig, ax = plt.subplots(figsize=(7.2, 2.6), facecolor=COLOR_CARD_DARK)
+        ax.set_facecolor(COLOR_CARD_DARK)
+        posicoes = list(range(len(periodos)))
+        largura = 0.32
+        barras_receitas = ax.bar(
+            [x - largura / 2 for x in posicoes], valores_receitas,
+            width=largura, color=COLOR_INCOME, label="Receitas"
+        )
+        barras_despesas = ax.bar(
+            [x + largura / 2 for x in posicoes], valores_despesas,
+            width=largura, color=COLOR_EXPENSE, label="Despesas"
+        )
+        ax.set_xticks(posicoes, rotulos)
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _pos: self._formatar_moeda(valor)))
+        ax.tick_params(axis="both", colors=COLOR_TEXT_MUTED, labelsize=8, length=0)
+        ax.grid(axis="y", color=COLOR_BORDER_DARK, linewidth=0.7, alpha=0.75)
+        ax.set_axisbelow(True)
+        maior_valor = max(valores_receitas + valores_despesas + [0])
+        ax.set_ylim(0, maior_valor * 1.25 if maior_valor else 1)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        legend = ax.legend(frameon=False, loc="upper left", fontsize=8, ncol=2)
+        for texto in legend.get_texts():
+            texto.set_color(COLOR_TEXT_MUTED)
+        deslocamento = maior_valor * 0.025 if maior_valor else 0.02
+        for barras in (barras_receitas, barras_despesas):
+            for barra in barras:
+                altura = barra.get_height()
+                ax.text(
+                    barra.get_x() + barra.get_width() / 2,
+                    altura + deslocamento,
+                    self._formatar_moeda(altura),
+                    ha="center", va="bottom", color=COLOR_TEXT_MAIN,
+                    fontsize=7, fontweight="bold"
+                )
+        fig.tight_layout(pad=1.2)
+        self.canvas_graficos = FigureCanvasTkAgg(fig, master=chart_card)
         self.canvas_graficos.draw_idle()
-        self.canvas_graficos.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+        widget_grafico = self.canvas_graficos.get_tk_widget()
+        widget_grafico.configure(bg=COLOR_CARD_DARK, highlightthickness=0)
+        widget_grafico.pack(fill="both", expand=True, padx=8, pady=(0, 6))
         plt.close(fig)
 
+        health_card = ctk.CTkFrame(
+            container, corner_radius=0, fg_color=COLOR_CARD_DARK,
+            border_width=1, border_color=COLOR_BORDER_DARK
+        )
+        health_card.grid(row=1, column=3, sticky="nsew", padx=(5, 0), pady=(0, 10))
+        ctk.CTkLabel(
+            health_card, text="SAÚDE FINANCEIRA", anchor="w", text_color=COLOR_TEXT_MAIN,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold")
+        ).pack(fill="x", padx=16, pady=(12, 4))
+        score = max(0, min(100, 50 + int(economia / 2))) if receitas else 0
+        ctk.CTkLabel(
+            health_card, text=f"{score}%", text_color=COLOR_TEXT_MAIN,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=32, weight="bold")
+        ).pack(pady=(8, 0))
+        ctk.CTkLabel(
+            health_card, text="score calculado", text_color=COLOR_TEXT_MUTED,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9)
+        ).pack()
+        barra = ctk.CTkProgressBar(health_card, height=9, corner_radius=0, progress_color=COLOR_INCOME)
+        barra.set(score / 100)
+        barra.pack(fill="x", padx=18, pady=(18, 9))
+        mensagem = "Excelente controle" if score >= 75 else "Bom caminho" if score >= 50 else "Atenção aos gastos"
+        ctk.CTkLabel(
+            health_card, text=mensagem, text_color=COLOR_INCOME if score >= 50 else COLOR_WARNING,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold")
+        ).pack()
+
+        recent_card = ctk.CTkFrame(
+            container, corner_radius=0, fg_color=COLOR_CARD_DARK,
+            border_width=1, border_color=COLOR_BORDER_DARK
+        )
+        recent_card.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=(0, 5))
+        ctk.CTkLabel(
+            recent_card, text="TRANSAÇÕES RECENTES", anchor="w", text_color=COLOR_TEXT_MAIN,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold")
+        ).pack(fill="x", padx=16, pady=(12, 7))
+        recentes = sorted(transacoes, key=lambda item: item.data, reverse=True)[:4]
+        if not recentes:
+            ctk.CTkLabel(recent_card, text="Nenhuma movimentação registrada.", text_color=COLOR_TEXT_MUTED).pack(pady=22)
+        for transacao in recentes:
+            linha = ctk.CTkFrame(recent_card, fg_color="transparent", height=31)
+            linha.pack(fill="x", padx=14, pady=1)
+            tipo_receita = transacao.categoria.tipo == TipoTransacao.RECEITA
+            ctk.CTkLabel(
+                linha, text="↗" if tipo_receita else "↘", width=24,
+                text_color=COLOR_INCOME if tipo_receita else COLOR_EXPENSE,
+                font=ctk.CTkFont(size=13, weight="bold")
+            ).pack(side="left")
+            ctk.CTkLabel(
+                linha, text=transacao.descricao, anchor="w", text_color=COLOR_TEXT_MAIN,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold")
+            ).pack(side="left", fill="x", expand=True, padx=4)
+            ctk.CTkLabel(
+                linha, text=self._formatar_moeda(transacao.valor),
+                text_color=COLOR_INCOME if tipo_receita else COLOR_TEXT_MAIN,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold")
+            ).pack(side="right")
+
+        budget_card = ctk.CTkFrame(
+            container, corner_radius=0, fg_color=COLOR_CARD_DARK,
+            border_width=1, border_color=COLOR_BORDER_DARK
+        )
+        budget_card.grid(row=2, column=2, columnspan=2, sticky="nsew", padx=(5, 0))
+        ctk.CTkLabel(
+            budget_card, text="ORÇAMENTOS", anchor="w", text_color=COLOR_TEXT_MAIN,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold")
+        ).pack(fill="x", padx=16, pady=(12, 7))
+        orcamentos = self.gerenciador.orcamentos[:3]
+        if not orcamentos:
+            ctk.CTkLabel(budget_card, text="Crie limites para acompanhar seus gastos.", text_color=COLOR_TEXT_MUTED).pack(pady=22)
+        for orcamento in orcamentos:
+            categoria = next((c for c in self.categorias if c.id == orcamento.categoria_id), None)
+            mes, ano = map(int, orcamento.mes_ano.split("/"))
+            gasto = sum(t.valor for t in transacoes if t.categoria.id == orcamento.categoria_id and t.data.month == mes and t.data.year == ano)
+            percentual = min(gasto / orcamento.limite_mensal, 1.0) if orcamento.limite_mensal else 0
+            linha = ctk.CTkFrame(budget_card, fg_color="transparent")
+            linha.pack(fill="x", padx=16, pady=3)
+            ctk.CTkLabel(linha, text=categoria.nome if categoria else "Categoria", anchor="w", text_color=COLOR_TEXT_MAIN, font=ctk.CTkFont(size=10, weight="bold")).pack(fill="x")
+            progress = ctk.CTkProgressBar(linha, height=6, progress_color=COLOR_EXPENSE if percentual >= .9 else COLOR_PRIMARY)
+            progress.set(percentual)
+            progress.pack(side="left", fill="x", expand=True, pady=(3, 0))
+            ctk.CTkLabel(linha, text=f"{percentual * 100:.0f}%", width=38, text_color=COLOR_TEXT_MUTED, font=ctk.CTkFont(size=9)).pack(side="right", padx=(8, 0))
+
         self.update_idletasks()
+
+    @staticmethod
+    def _formatar_moeda(valor):
+        texto = f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"R$ {texto}"
 
     def atualizar_saldo(self):
         saldo = self.gerenciador.calc_saldo_total()
@@ -972,21 +1176,27 @@ class AppGUI(ctk.CTk):
         for widget in self.scroll_transacoes.winfo_children():
             widget.destroy()
 
-        if not self.gerenciador.transacoes:
+        busca = self.entry_busca.get().strip().lower() if hasattr(self, "entry_busca") else ""
+        transacoes = [
+            t for t in self.gerenciador.transacoes
+            if not busca or busca in t.descricao.lower() or busca in t.categoria.nome.lower() or busca in t.conta.nome.lower()
+        ]
+
+        if not transacoes:
             ctk.CTkLabel(
                 self.scroll_transacoes,
-                text="Nenhuma transação cadastrada.",
+                text="Nenhuma transação encontrada." if busca else "Nenhuma transação cadastrada.",
                 text_color=COLOR_TEXT_MUTED
             ).pack(pady=24)
             return
 
-        for t in self.gerenciador.transacoes:
+        for t in sorted(transacoes, key=lambda item: item.data, reverse=True):
             frame_bloco = ctk.CTkFrame(
                 self.scroll_transacoes,
-                corner_radius=6,
+                corner_radius=0,
                 border_width=1,
                 border_color=COLOR_BORDER_DARK,
-                fg_color=COLOR_BG_DARK
+                fg_color=COLOR_CARD_ALT
             )
             frame_bloco.pack(fill="x", pady=4, padx=4)
 
@@ -1005,7 +1215,7 @@ class AppGUI(ctk.CTk):
             )
             lbl_descricao.pack(anchor="w")
 
-            detalhes_texto = f"{t.categoria.nome} - {t.data.strftime('%d/%m/%Y')}"
+            detalhes_texto = f"{t.conta.nome}  •  {t.categoria.nome}  •  {t.data.strftime('%d/%m/%Y')}"
             lbl_detalhes = ctk.CTkLabel(
                 frame_info,
                 text=detalhes_texto,
@@ -1017,11 +1227,11 @@ class AppGUI(ctk.CTk):
 
             btn_remover = ctk.CTkButton(
                 frame_bloco,
-                text="Remover",
-                width=65,
+                text="×",
+                width=30,
                 height=28,
                 font=ctk.CTkFont(size=11),
-                fg_color="#3F3F46",
+                fg_color="transparent",
                 hover_color="#991B1B",
                 command=lambda id_del=t.id: self.acao_remover_transacao(id_del)
             )
@@ -1029,7 +1239,7 @@ class AppGUI(ctk.CTk):
 
             lbl_val = ctk.CTkLabel(
                 frame_bloco,
-                text=f"{sinal} R${t.valor:.2f}",
+                text=f"{sinal} {self._formatar_moeda(t.valor)}",
                 text_color=cor_valor,
                 font=ctk.CTkFont(size=14, weight="bold")
             )
@@ -1147,7 +1357,7 @@ class AppGUI(ctk.CTk):
 
             frame_card = ctk.CTkFrame(
                 self.scroll_orcamentos, 
-                corner_radius=6,
+                corner_radius=0,
                 border_width=1,
                 border_color=COLOR_BORDER_DARK,
                 fg_color=COLOR_CARD_DARK
@@ -1271,7 +1481,7 @@ class AppGUI(ctk.CTk):
         self.lbl_status.configure(text=texto, text_color=cor)
         self.update_idletasks()
 
-        self._timer_status = self.after(3500, self._timer_status)
+        self._timer_status = self.after(3500, self._limpar_status)
 
     def _limpar_status(self):
         self.lbl_status.configure(text="")
